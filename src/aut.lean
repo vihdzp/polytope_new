@@ -18,6 +18,7 @@ def comparable' {α : Type*} [partial_order α] (x y : α) : Prop :=
 x ≤ y ∨ y ≤ x
 
 /-- Both forms of comparability are equivalent. -/
+@[simp]
 lemma comp_iff_comp' {α : Type*} [partial_order α] (x y : α) : comparable x y ↔ comparable' x y :=
 begin
   split, {
@@ -36,10 +37,12 @@ begin
 end
 
 /-- Comparability is reflexive. -/
+@[refl]
 lemma comparable.refl {α : Type*} [partial_order α] {x : α} : comparable x x :=
 or.inr rfl.le
 
 /-- Comparability is symmetric. -/
+@[symm]
 lemma comparable.symm {α : Type*} [partial_order α] {x y : α} : comparable x y → comparable y x :=
 begin
   rw comp_iff_comp',
