@@ -21,19 +21,12 @@ x ≤ y ∨ y ≤ x
 @[simp]
 lemma comp_iff_comp' {α : Type*} [partial_order α] (x y : α) : comparable x y ↔ comparable' x y :=
 begin
-  split, {
-    rintro (hxy | hyx), {
-      exact or.inl (le_of_lt hxy),
-    },
-    exact or.inr hyx,
-  },
-  rintro (hxy | hyx), {
-    cases eq_or_lt_of_le hxy with heq hle, {
-      exact or.inr (ge_of_eq heq),
-    },
-    exact or.inl hle,
-  },
-  exact or.inr hyx,
+  refine ⟨λ h, _, λ h, _⟩,
+  all_goals { cases h with hxy hyx },
+    { exact or.inl (le_of_lt hxy) },
+    { exact or.inr hyx },
+    { exact (eq_or_lt_of_le hxy).elim (λ h, or.inr $ ge_of_eq h) or.inl },
+    { exact or.inr hyx }
 end
 
 /-- Comparability is reflexive. -/
@@ -44,42 +37,24 @@ or.inr rfl.le
 /-- Comparability is symmetric. -/
 @[symm]
 lemma comparable.symm {α : Type*} [partial_order α] {x y : α} : comparable x y → comparable y x :=
-begin
-  rw comp_iff_comp',
-  rw comp_iff_comp',
-  rintro (hle | hle), {
-    exact or.inr hle,
-  },
-  exact or.inl hle,
-end
+by simp_rw comp_iff_comp'; exact or.symm
 
 /-- Any two elements of a flag are comparable. -/
 lemma flag.comparable {α : Type*} [partial_order α] (Φ : flag α) : ∀ {x y : α} (hx : x ∈ Φ.val) (hy : y ∈ Φ.val), comparable x y :=
 begin
   intros x y hx hy,
   rcases Φ with ⟨_, hΦ, _⟩,
-  have hxy := hΦ x hx y hy,
   rw comp_iff_comp',
-  by_cases heq : x = y, {
-    exact or.inl (le_of_eq heq),
-  },
-  exact hxy heq,
+  by_cases heq : x = y,
+    { exact or.inl (le_of_eq heq) },
+    { exact hΦ x hx y hy heq }
 end
 
 /-- An element comparable with everything in a flag belongs to it. -/
 lemma comp_all_in_flag {α : Type*} [bg : partial_order α] {a : α} (Φ : flag α) (ha : ∀ b ∈ Φ.val, comparable' a b) : a ∈ Φ.val := begin
   by_contra,
-  cases Φ with Φ hΦ,
-  apply hΦ.right,
-  use set.insert a Φ,
-  split, {
-    apply zorn.chain_insert, {
-      exact hΦ.left,
-    },
-    intros _ hbΦ _,
-    exact (ha b hbΦ),
-  },
-  exact set.ssubset_insert h,
+  refine Φ.prop.right ⟨set.insert a Φ, _, set.ssubset_insert h⟩,
+  exact zorn.chain_insert Φ.prop.left (λ _ hbΦ _, ha _ hbΦ)
 end
 
 /-- The category of posets of type α. -/
