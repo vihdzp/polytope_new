@@ -108,6 +108,64 @@ comp_all_in_flag Φ (λ b _, or.inl bot_le)
 theorem top_in_flag (Φ : flag α) : ⊤ ∈ Φ.val :=
 comp_all_in_flag Φ (λ b _, or.inr le_top)
 
+/-- A point in an interval subdivides it into three. -/
+lemma ioo_tricho {a b : ℕ} (d ∈ set.Ioo a b) : ∀ c ∈ set.Ioo a b, c = d ∨ c ∈ set.Ioo a d ∨ c ∈ set.Ioo d b :=
+begin
+  intros c hc,
+  by_cases hcd : c = d, {
+    exact or.inl hcd,
+  },
+  cases ne.lt_or_lt hcd with ha hb, {
+    exact or.inr (or.inl ⟨hc.left, ha⟩),
+  },
+  exact or.inr (or.inr ⟨hb, hc.right⟩),
+end
+
+/-- An auxiliary result for `flag_grade'`. -/
+lemma all_icc_of_ex_ioo' {P : ℕ → Prop} (n : ℕ) (hP : ∀ a b, b ≤ a + n → P a → P b → nonempty (set.Ioo a b) → ∃ c ∈ set.Ioo a b, P c) :
+∀ a b, b ≤ a + n → P a → P b → ∀ c ∈ set.Ioo a b, P c :=
+begin
+  induction n with n hP', {
+    intros a b hba ha hb c hci,
+    exfalso,
+    exact (not_lt_of_ge hba) (lt_trans hci.left hci.right),
+  },
+  intros a b hba ha hb c hci,
+  rcases hP a b hba ha hb (nonempty.intro ⟨c, hci⟩) with ⟨d, hdi, hd⟩,
+  cases ioo_tricho d hdi c hci with hcd hdb, {
+    rwa ←hcd at hd,
+  },
+  have hxy : ∃ x y, P x ∧ P y ∧ c ∈ set.Ioo x y ∧ y ≤ x + n := begin
+    cases hdb with hcad hcdb, {
+      use a, use d, use ha, use hd, use hcad,   
+      have h := lt_of_lt_of_le hdi.right hba,
+      rw nat.add_succ at h,
+      exact nat.le_of_lt_succ h,
+    },
+    use d, use b, use hd, use hb, use hcdb,
+    have h := nat.add_le_add hdi.left rfl.le,
+    rw nat.succ_add a n at h,
+    exact le_trans hba h,
+  end,
+  rcases hxy with ⟨x, y, hx, hy, hxy, hyx⟩, 
+  refine hP' _ x y hyx hx hy c hxy,
+  intros a b hba,
+  apply hP,
+  exact le_trans hba (nat.le_succ _),
+end
+
+/-- An auxiliary result for `flag_grade'`. -/
+lemma all_icc_of_ex_ioo {P : ℕ → Prop} (hP : ∀ a b, P a → P b → (nonempty (set.Ioo a b)) → ∃ c ∈ set.Ioo a b, P c) :
+∀ a b, P a → P b → ∀ c ∈ set.Ioo a b, P c := 
+begin
+  intros a b,
+  refine all_icc_of_ex_ioo' b _ _ _ _, {
+    intros c d hdc hc hd,
+    exact hP c d hc hd,
+  },
+  exact le_add_self,
+end
+
 /-- If `x < y` but `y` does not cover `x`, then there's an element in between. -/
 -- do we need this?
 lemma between_of_ncover {x y : α} (hnxy : ¬x ⋖ y) (hxy : x < y) :
