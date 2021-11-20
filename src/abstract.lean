@@ -30,35 +30,35 @@ instance Icc (x y : α) (h : x ≤ y) : bounded_order (set.Icc x y) :=
 
 end bounded_order
 
-namespace has_grade
-
 /-- A bounded graded order has an order homomorphism into the naturals, such 
     that ⊥ has grade 0, and the homomorphism respects covering. -/
-structure {u} grade (α : Type u) [preorder α] [bounded_order α] : Type u :=
+@[protect_proj, field_simps]
+class {u} has_grade (α : Type u) [preorder α] [bounded_order α] : Type u :=
 (grade : α → ℕ)
 (grade_bot : grade ⊥ = 0)
 (strict_mono : strict_mono grade)
-(hcovers : ∀ x y, x ⋖ y → grade y = grade x + 1)
-
-end has_grade
+(hcovers : ∀ {x y}, x ⋖ y → grade y = grade x + 1)
 
 /-- A bounded graded partial order. -/
-class bounded_graded (α : Type*) extends partial_order α, bounded_order α, has_grade.grade α
+class bounded_graded (α : Type*) extends partial_order α, bounded_order α, has_grade α
+
+/-- The grade of an element in a polytope. -/
+@[reducible]
+def grade {α : Type*} [preorder α] [bounded_order α] [hg : has_grade α] : α → ℕ :=
+hg.grade
+
+/-- The grade of a polytope is the grade of `⊤`. -/
+@[reducible]
+def top_grade (α : Type*) [preorder α] [bounded_order α] [hg : has_grade α] : ℕ :=
+grade (⊤ : α)
 
 namespace bounded_graded
 
-/-- A `bounded_graded` is monotone. -/
-def monotone {α : Type*} (bg : bounded_graded α) := bg.strict_mono.monotone
+/-- A `bounded_graded`'s grade is monotone. -/
+protected def monotone {α : Type*} [bg : bounded_graded α] : monotone bg.grade :=
+has_grade.strict_mono.monotone
 
 end bounded_graded
-
-/-- `grade` is monotone. -/
-lemma grade_le_of_le {α : Type*} [bg : bounded_graded α] {a b : α} (h : a ≤ b) : bg.grade a ≤ bg.grade b := 
-bg.monotone h
-
-/-- `grade` is strictly monotone. -/
-lemma grade_lt_of_lt {α : Type*} [bg : bounded_graded α] {a b : α} (h : a < b) : bg.grade a < bg.grade b := 
-bg.strict_mono h
 
 /-- Proper elements are those that are neither `⊥` nor `⊤`. -/
 @[reducible]
@@ -67,29 +67,19 @@ x ≠ ⊥ ∧ x ≠ ⊤
 
 namespace bounded_graded
 
-/-- The grade of an element in a polytope. -/
-@[reducible]
-def grade {α : Type*} [bg : bounded_graded α] : α → ℕ :=
-bg.grade
-
-/-- The grade of a polytope is the grade of `⊤`. -/
-@[reducible]
-def top_grade (α : Type*) [bg : bounded_graded α] : ℕ :=
-bg.grade (⊤ : α)
-
 /-- Every closed non-empty interval of a `bounded_graded` is itself a `bounded_graded`. -/
-instance Icc {α : Type*} [bg : bounded_graded α] (x y : α) (h : x ≤ y) : bounded_graded (set.Icc x y) :=
-{ grade := λ a, bg.grade a.val - bg.grade x,
+instance Icc {α : Type*} [bounded_graded α] (x y : α) (h : x ≤ y) : bounded_graded (set.Icc x y) :=
+{ grade := λ a, grade a.val - grade x,
   strict_mono := λ a b h,
-    nat.sub_mono_left_strict (grade_le_of_le a.prop.left) (grade_lt_of_lt h),
+    nat.sub_mono_left_strict (bounded_graded.monotone a.prop.left) (has_grade.strict_mono h),
   grade_bot := tsub_eq_zero_iff_le.mpr (refl _),
   hcovers := begin
     rintros ⟨a, ha⟩ ⟨b, hb⟩ ⟨hab, hcov⟩,
     suffices this : ∀ z, z ∉ set.Ioo a b,
-    have : bg.grade b = bg.grade a + 1 := bg.hcovers a b ⟨hab, this⟩,
-    change bg.grade b - bg.grade x = bg.grade a - bg.grade x + 1,
+    have : grade b = grade a + 1 := has_grade.hcovers ⟨hab, this⟩,
+    change grade b - grade x = grade a - grade x + 1,
     rw [this, nat.sub_add_comm],
-    exact grade_le_of_le ha.left,
+    exact bounded_graded.monotone ha.left,
     intros z h,
     simp at hcov,
     apply hcov z (ha.left.trans (le_of_lt h.left)) ((le_of_lt h.right).trans hb.right),
@@ -109,62 +99,44 @@ theorem top_in_flag (Φ : flag α) : ⊤ ∈ Φ.val :=
 comp_all_in_flag Φ (λ b _, or.inr le_top)
 
 /-- A point in an interval subdivides it into three. -/
-lemma ioo_tricho {a b : ℕ} (d ∈ set.Ioo a b) : ∀ c ∈ set.Ioo a b, c = d ∨ c ∈ set.Ioo a d ∨ c ∈ set.Ioo d b :=
+lemma ioo_tricho {a b : ℕ} (c d ∈ set.Ioo a b) : c = d ∨ c ∈ set.Ioo a d ∨ c ∈ set.Ioo d b :=
 begin
-  intros c hc,
-  by_cases hcd : c = d, {
-    exact or.inl hcd,
-  },
-  cases ne.lt_or_lt hcd with ha hb, {
-    exact or.inr (or.inl ⟨hc.left, ha⟩),
-  },
-  exact or.inr (or.inr ⟨hb, hc.right⟩),
+  by_cases hcd : c = d, { exact or.inl hcd },
+  cases ne.lt_or_lt hcd with ha hb,
+    { exact or.inr (or.inl ⟨and.left ‹_›, ha⟩) },
+    { exact or.inr (or.inr ⟨hb, and.right ‹_›⟩) }
 end
 
 /-- An auxiliary result for `flag_grade'`. -/
-lemma all_icc_of_ex_ioo' {P : ℕ → Prop} (n : ℕ) (hP : ∀ a b, b ≤ a + n → P a → P b → nonempty (set.Ioo a b) → ∃ c ∈ set.Ioo a b, P c) :
-∀ a b, b ≤ a + n → P a → P b → ∀ c ∈ set.Ioo a b, P c :=
+private lemma all_icc_of_ex_ioo' {P : ℕ → Prop} (n : ℕ) (hP : ∀ a b, b ≤ a + n → P a → P b → nonempty (set.Ioo a b) → ∃ c ∈ set.Ioo a b, P c) :
+  ∀ a b, b ≤ a + n → P a → P b → ∀ c ∈ set.Ioo a b, P c :=
 begin
-  induction n with n hP', {
-    intros a b hba ha hb c hci,
-    exfalso,
-    exact (not_lt_of_ge hba) (lt_trans hci.left hci.right),
-  },
+  induction n with n hP',
+    { exact λ a b hba ha hb c hci, ((not_lt_of_ge hba) (lt_trans hci.left hci.right)).elim },
   intros a b hba ha hb c hci,
   rcases hP a b hba ha hb (nonempty.intro ⟨c, hci⟩) with ⟨d, hdi, hd⟩,
-  cases ioo_tricho d hdi c hci with hcd hdb, {
-    rwa ←hcd at hd,
-  },
+  cases ioo_tricho c d hci hdi with hcd hdb, { rwa ←hcd at hd },
   have hxy : ∃ x y, P x ∧ P y ∧ c ∈ set.Ioo x y ∧ y ≤ x + n := begin
-    cases hdb with hcad hcdb, {
-      use a, use d, use ha, use hd, use hcad,   
-      have h := lt_of_lt_of_le hdi.right hba,
-      rw nat.add_succ at h,
-      exact nat.le_of_lt_succ h,
-    },
-    use d, use b, use hd, use hb, use hcdb,
-    have h := nat.add_le_add hdi.left rfl.le,
-    rw nat.succ_add a n at h,
-    exact le_trans hba h,
+    cases hdb with hcad hcdb,
+      { refine ⟨a, d, ha, hd, hcad, _⟩,
+        have h := lt_of_lt_of_le hdi.right hba,
+        rw nat.add_succ at h,
+        exact nat.le_of_lt_succ h },
+      { refine ⟨d, b, hd, hb, hcdb, _⟩,
+        have h := nat.add_le_add hdi.left rfl.le,
+        rw nat.succ_add a n at h,
+        exact le_trans hba h }
   end,
   rcases hxy with ⟨x, y, hx, hy, hxy, hyx⟩, 
-  refine hP' _ x y hyx hx hy c hxy,
-  intros a b hba,
+  refine hP' (λ a b hba, _) x y hyx hx hy c hxy,
   apply hP,
-  exact le_trans hba (nat.le_succ _),
+  exact hba.trans (nat.le_succ _),
 end
 
 /-- An auxiliary result for `flag_grade'`. -/
-lemma all_icc_of_ex_ioo {P : ℕ → Prop} (hP : ∀ a b, P a → P b → (nonempty (set.Ioo a b)) → ∃ c ∈ set.Ioo a b, P c) :
-∀ a b, P a → P b → ∀ c ∈ set.Ioo a b, P c := 
-begin
-  intros a b,
-  refine all_icc_of_ex_ioo' b _ _ _ _, {
-    intros c d hdc hc hd,
-    exact hP c d hc hd,
-  },
-  exact le_add_self,
-end
+private lemma all_icc_of_ex_ioo {P : ℕ → Prop} (hP : ∀ a b, P a → P b → (nonempty (set.Ioo a b)) → ∃ c ∈ set.Ioo a b, P c) :
+  ∀ a b, P a → P b → ∀ c ∈ set.Ioo a b, P c :=
+λ _ b, all_icc_of_ex_ioo' b (λ c d hdc, hP c d) _ _ le_add_self
 
 /-- If `x < y` but `y` does not cover `x`, then there's an element in between. -/
 -- do we need this?
@@ -198,7 +170,7 @@ lemma le_of_grade_le_flag (Φ : flag α) {x y : α} (hx : x ∈ Φ.val) (hy : y 
 begin
   contrapose,
   intros hnxy hngxy,
-  refine not_le_of_gt (grade_lt_of_lt _) hngxy,
+  refine not_le_of_gt (has_grade.strict_mono _) hngxy,
   rcases Φ with ⟨_, hΦ, _⟩,
   have h := hΦ x hx y hy,
   have hne : x ≠ y := λ hxy, hnxy (ge_of_eq hxy.symm),
@@ -209,21 +181,14 @@ begin
 end
 
 /-- `grade` has a strongly monotone inverse in flags. -/
-lemma lt_of_grade_lt_flag {α : Type*} [bg : bounded_graded α] (Φ : flag α) {x y : α} (hx : x ∈ Φ.val) (hy : y ∈ Φ.val) : 
-bg.grade x < bg.grade y → x < y :=
-begin
-  intro hxy,
-  cases lt_or_eq_of_le (le_of_grade_le_flag Φ hx hy (le_of_lt hxy)) with h h, {
-    exact h,
-  },
-  rw h at hxy,
-  exact false.elim (nat.lt_asymm hxy hxy),
-end
+lemma lt_of_grade_lt_flag (Φ : flag α) {x y : α} (hx : x ∈ Φ.val) (hy : y ∈ Φ.val)
+  (hxy : grade x < grade y) : x < y :=
+(lt_or_eq_of_le (le_of_grade_le_flag Φ hx hy (le_of_lt hxy))).elim id
+  (λ h, let h := h.subst hxy in (nat.lt_asymm h h).elim)
 
-lemma flag_grade' {α : Type*} [bg : bounded_graded α] (Φ : flag α) :
-∀ n (x y ∈ Φ.val), bg.grade y = bg.grade x + n → ∀ r ∈ set.Icc (bg.grade x) (bg.grade y), ∃ z ∈ Φ.val, bg.grade z = r :=
+lemma flag_grade' (Φ : flag α) {n : ℕ} : ∀ x y ∈ Φ.val, grade y = grade x + n →
+  ∀ r ∈ set.Icc (grade x) (grade y), ∃ z ∈ Φ.val, grade z = r :=
 begin
-  intro n,
   apply nat.strong_induction_on n,
   intros n H x y hx hy hg r hr,
 
@@ -252,15 +217,15 @@ begin
   -- Otherwise, `y` can't cover `x`.
   have hnxy : ¬x ⋖ y := begin
     intro hxy,
-    have h : bg.grade y = bg.grade x + 1 := bg.hcovers x y hxy,
+    have h : grade y = grade x + 1 := has_grade.hcovers hxy,
     rw h at hg,
     apply ne_of_lt (nat.zero_lt_succ n),
-    exact nat.succ.inj ((add_right_inj (bg.grade x)).mp hg),
+    exact nat.succ.inj ((add_right_inj $ grade x).mp hg),
   end,
 
   -- `x < y`.
   have hxy : x < y := begin
-    have hg' : bg.grade x < bg.grade x + n.succ.succ := nat.lt_add_of_pos_right (nat.zero_lt_succ _),
+    have hg' : grade x < grade x + n.succ.succ := nat.lt_add_of_pos_right (nat.zero_lt_succ _),
     rw ← hg at hg',
     exact lt_of_grade_lt_flag Φ hx hy hg',
   end,
@@ -275,26 +240,26 @@ begin
   end,
 
   rcases h with ⟨z, hz, hxz, hzy⟩,
-  have hrz : r ≤ bg.grade z ∨ bg.grade z ≤ r := sorry,
+  have hrz : r ≤ grade z ∨ grade z ≤ r := sorry,
   cases hrz with hrz hrz, {
-    have m : ℕ := (bg.grade x - bg.grade z),
-    have hm : bg.grade z + m = bg.grade x := sorry,
+    have m : ℕ := grade x - grade z,
+    have hm : grade z + m = grade x := sorry,
     have hmn : m < n.succ.succ := sorry,
-    have hri : r ∈ set.Icc (bg.grade z) (bg.grade x) := sorry,
+    have hri : r ∈ set.Icc (grade z) (grade x) := sorry,
     exact H m hmn z x hz hx hm.symm r hri,
   },  
-  have m : ℕ := (bg.grade z - bg.grade y),
-  have hm : bg.grade y + m = bg.grade z := sorry,
+  have m : ℕ := (grade z - grade y),
+  have hm : grade y + m = grade z := sorry,
   have hmn : m < n.succ.succ := sorry,
-  have hri : r ∈ set.Icc (bg.grade y) (bg.grade z) := sorry,
+  have hri : r ∈ set.Icc (grade y) (grade z) := sorry,
   exact H m hmn y z hy hz hm.symm r hri,
 end
 
 end bounded_graded
 
 /-- The diamond property between two elements. -/
-def diamond {α : Type*} [bg : bounded_graded α] (x y : α) : Prop :=
-x ≤ y → bg.grade y = bg.grade x + 2 → ∃ a b ∈ set.Ioo x y, a ≠ b ∧ ∀ c ∈ set.Ioo x y, c = a ∨ c = b
+def diamond {α : Type*} [bounded_graded α] (x y : α) : Prop :=
+x ≤ y → grade y = grade x + 2 → ∃ a b ∈ set.Ioo x y, a ≠ b ∧ ∀ c ∈ set.Ioo x y, c = a ∨ c = b
 
 /-- A pre-polytope is a bounded graded partial order that satisfies the 
     diamond property. -/
@@ -312,8 +277,8 @@ namespace bounded_graded
 
 /-- A `bounded_graded` is connected when it's of grade 2, or any two proper
      elements are connected. -/
-def connected (α : Type*) [bg : bounded_graded α] : Prop :=
-bounded_graded.top_grade α = 2 ∨ ∀ a b : α, proper a → proper b → connected a b
+def connected (α : Type*) [bounded_graded α] : Prop :=
+top_grade α = 2 ∨ ∀ a b : α, proper a → proper b → connected a b
 
 end bounded_graded
 
