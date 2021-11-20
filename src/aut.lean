@@ -145,8 +145,4 @@ instance : has_scalar (automorphism α) (flag α) :=
 theorem smul_def.eq' (γ : automorphism α) (Φ : flag α) : (γ • Φ).val = γ.hom '' Φ.val :=
 rfl
 
-instance (α : Type*) [p : partial_order α] : mul_action (automorphism α) (flag α) := 
-{ one_smul := sorry,
-  mul_smul := sorry }
-
 end automorphism

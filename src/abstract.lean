@@ -96,16 +96,24 @@ x ≠ ⊥ ∧ x ≠ ⊤
 def comparable {α : Type*} [preorder α] (x y : α) : Prop :=
 x ≤ y ∨ y ≤ x
 
-/-- `connected_ind a b` is the type of all paths from `a` to `b` passing only
-    through proper elements. -/
-inductive connected_ind {α : Type*} [bounded_graded α] : α → α → Prop
-| start (x : α) : proper x → connected_ind x x
-| next (x y z : α) : connected_ind x y → proper z → comparable y z → connected_ind x z
+lemma comparable.refl {α : Type*} [preorder α] {x : α} : comparable x x :=
+or.inl rfl.le
 
-/-- Two elements are connected when there's a path between them passing only
-    through proper elements. -/
-def connected {α : Type*} [bounded_graded α] (a b : α) : Prop :=
-nonempty (connected_ind a b)
+lemma comparable.symm {α : Type*} [preorder α] {x y : α} : comparable x y → comparable y x :=
+begin
+  intro hxy,
+  rcases hxy with hle | hle, {
+    exact or.inr hle,
+  },
+  exact or.inl hle,
+end
+
+/-- The type `connected_ind a b` is the type of all paths from `a` to `b` 
+    passing only through proper elements. Giving an instance of this type is
+    equivalent to proving `a` and `b` are connected. -/
+inductive connected {α : Type*} [bounded_graded α] : α → α → Prop
+| start (x : α) : proper x → connected x x
+| next (x y z : α) : connected x y → proper z → comparable y z → connected x z
 
 namespace bounded_graded
 
