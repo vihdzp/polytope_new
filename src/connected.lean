@@ -1,11 +1,11 @@
 import .abstract
 
 /-- Connectivity is reflexive. -/
-lemma connected.refl {α : Type*} [bounded_graded α] : ∀ a : α, proper a → connected a a := 
+theorem connected.refl {α : Type*} [bounded_graded α] : ∀ a : α, proper a → connected a a := 
 λ a pa, (connected.start a) pa
 
 /-- Comparable proper elements are connected. -/
-lemma comp_to_connected {α : Type*} [bounded_graded α] : ∀ {a b : α}, proper a → proper b → comparable a b → connected a b :=
+theorem comp_to_connected {α : Type*} [bounded_graded α] : ∀ {a b : α}, proper a → proper b → comparable a b → connected a b :=
 λ a b pa pb hab, (connected.next a a b) (connected.refl a pa) pb hab
 
 /-- If `a` and `b` are comparable proper elements, and `b` and `c` are connected, 
@@ -20,7 +20,7 @@ begin
 end
 
 /-- Connectedness is symmetric. -/
-lemma connected.symm {α : Type*} [bounded_graded α] : ∀ {a b : α}, connected a b → connected b a := 
+theorem connected.symm {α : Type*} [bounded_graded α] : ∀ {a b : α}, connected a b → connected b a := 
 begin
   intros a b hab,
   induction hab with a pa _ _ _ _ pz hyz hyx, {
@@ -50,7 +50,7 @@ begin
 end
 
 /-- Connectedness is transitive. -/
-lemma connected.trans {α : Type*} [bounded_graded α] : ∀ {a b c : α}, connected a b → connected b c → connected c a :=
+theorem connected.trans {α : Type*} [bounded_graded α] : ∀ {a b c : α}, connected a b → connected b c → connected c a :=
 begin
   intros a b c hab hbc,
   induction hab with _ _ x y z hxy pz hyz h, {
