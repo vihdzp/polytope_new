@@ -3,8 +3,67 @@ import tactic order.zorn order.preorder_hom category_theory.conj
 open category_theory
 
 /-- A flag is a maximal chain. -/
-def flag (α : Type*) [preorder α] : Type* :=
+@[reducible]
+def flag (α : Type*) [partial_order α] : Type* :=
 {c : set α // @zorn.is_max_chain α (≤) c}
+
+/-- Comparable elements in a poset. -/
+@[reducible]
+def comparable' {α : Type*} [partial_order α] (x y : α) : Prop :=
+x ≤ y ∨ y ≤ x
+
+/-- Comparable elements in a poset. -/
+@[reducible]
+def comparable {α : Type*} [partial_order α] (x y : α) : Prop :=
+x < y ∨ y ≤ x
+
+-- todo: make into an iff
+lemma comp_of_comp' {α : Type*} [partial_order α] (x y : α) : comparable' x y → comparable x y :=
+begin
+  rintro (hxy | hyx), {
+    cases eq_or_lt_of_le hxy with heq hle, {
+      exact or.inr (ge_of_eq heq),
+    },
+    exact or.inl hle,
+  },
+  exact or.inr hyx,
+end
+
+/-- Any two elements of a flag are comparable'. -/
+lemma flag.comparable' {α : Type*} [partial_order α] (Φ : flag α) : ∀ (x y ∈ Φ.val), comparable' x y :=
+begin
+  intros x y hx hy,
+  rcases Φ with ⟨_, hΦ, _⟩,
+  have hxy := hΦ x hx y hy,
+  by_cases heq : x = y, {
+    exact or.inl (le_of_eq heq),
+  },
+  exact hxy heq,
+end
+
+/-- Any two elements of a flag are comparable. -/
+lemma flag.comparable {α : Type*} [partial_order α] (Φ : flag α) : ∀ (x y ∈ Φ.val), comparable x y :=
+begin
+  intros x y hx hy,
+  exact comp_of_comp' x y (flag.comparable' Φ x y hx hy),
+end
+
+/-- An element comparable with everything in a flag belongs to it. -/
+lemma comp_all_in_flag {α : Type*} [bg : partial_order α] {a : α} (Φ : flag α) (ha : ∀ b ∈ Φ.val, comparable a b) : a ∈ Φ.val := begin
+  by_contra,
+  cases Φ with Φ hΦ,
+  apply hΦ.right,
+  use set.insert a Φ,
+  split, {
+    apply zorn.chain_insert, {
+      exact hΦ.left,
+    },
+    intros _ hbΦ _,
+    sorry,
+    --exact comp_of_comp' a b (ha b hbΦ),
+  },
+  exact set.ssubset_insert h,
+end
 
 /-- The category of posets of type α. -/
 @[instance]
@@ -138,11 +197,21 @@ begin
       exact hna h },
 end
 
-instance : has_scalar (automorphism α) (flag α) :=
+instance smul : has_scalar (automorphism α) (flag α) :=
 ⟨λ γ Φ, ⟨γ.smul_def Φ, γ.smul_is_max_chain Φ⟩⟩
 
 @[reducible, simp]
 theorem smul_def.eq' (γ : automorphism α) (Φ : flag α) : (γ • Φ).val = γ.hom '' Φ.val :=
 rfl
+
+instance : mul_action (automorphism α) (flag α) := 
+{ one_smul := by rintro ⟨b, _⟩; apply subtype.eq; exact set.image_id b,
+  mul_smul := begin
+    rintros γ γ' ⟨b, _⟩,
+    apply subtype.eq,
+    change (γ'.hom ≫ γ.hom) '' b = γ.hom '' (γ'.hom '' b),
+    rw ←set.image_comp,
+    refl
+  end }
 
 end automorphism
