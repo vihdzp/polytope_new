@@ -9,17 +9,23 @@ def flag (α : Type*) [partial_order α] : Type* :=
 
 /-- Comparable elements in a poset. -/
 @[reducible]
-def comparable' {α : Type*} [partial_order α] (x y : α) : Prop :=
-x ≤ y ∨ y ≤ x
-
-/-- Comparable elements in a poset. -/
-@[reducible]
 def comparable {α : Type*} [partial_order α] (x y : α) : Prop :=
 x < y ∨ y ≤ x
 
--- todo: make into an iff
-lemma comp_of_comp' {α : Type*} [partial_order α] (x y : α) : comparable' x y → comparable x y :=
+/-- An alternate form of comparability. -/
+@[reducible]
+def comparable' {α : Type*} [partial_order α] (x y : α) : Prop :=
+x ≤ y ∨ y ≤ x
+
+/-- Both forms of comparability are equivalent. -/
+lemma comp_iff_comp' {α : Type*} [partial_order α] (x y : α) : comparable x y ↔ comparable' x y :=
 begin
+  split, {
+    rintro (hxy | hyx), {
+      exact or.inl (le_of_lt hxy),
+    },
+    exact or.inr hyx,
+  },
   rintro (hxy | hyx), {
     cases eq_or_lt_of_le hxy with heq hle, {
       exact or.inr (ge_of_eq heq),
@@ -29,27 +35,36 @@ begin
   exact or.inr hyx,
 end
 
-/-- Any two elements of a flag are comparable'. -/
-lemma flag.comparable' {α : Type*} [partial_order α] (Φ : flag α) : ∀ (x y ∈ Φ.val), comparable' x y :=
+/-- Comparability is reflexive. -/
+lemma comparable.refl {α : Type*} [partial_order α] {x : α} : comparable x x :=
+or.inr rfl.le
+
+/-- Comparability is symmetric. -/
+lemma comparable.symm {α : Type*} [partial_order α] {x y : α} : comparable x y → comparable y x :=
+begin
+  rw comp_iff_comp',
+  rw comp_iff_comp',
+  rintro (hle | hle), {
+    exact or.inr hle,
+  },
+  exact or.inl hle,
+end
+
+/-- Any two elements of a flag are comparable. -/
+lemma flag.comparable {α : Type*} [partial_order α] (Φ : flag α) : ∀ {x y : α} (hx : x ∈ Φ.val) (hy : y ∈ Φ.val), comparable x y :=
 begin
   intros x y hx hy,
   rcases Φ with ⟨_, hΦ, _⟩,
   have hxy := hΦ x hx y hy,
+  rw comp_iff_comp',
   by_cases heq : x = y, {
     exact or.inl (le_of_eq heq),
   },
   exact hxy heq,
 end
 
-/-- Any two elements of a flag are comparable. -/
-lemma flag.comparable {α : Type*} [partial_order α] (Φ : flag α) : ∀ (x y ∈ Φ.val), comparable x y :=
-begin
-  intros x y hx hy,
-  exact comp_of_comp' x y (flag.comparable' Φ x y hx hy),
-end
-
 /-- An element comparable with everything in a flag belongs to it. -/
-lemma comp_all_in_flag {α : Type*} [bg : partial_order α] {a : α} (Φ : flag α) (ha : ∀ b ∈ Φ.val, comparable a b) : a ∈ Φ.val := begin
+lemma comp_all_in_flag {α : Type*} [bg : partial_order α] {a : α} (Φ : flag α) (ha : ∀ b ∈ Φ.val, comparable' a b) : a ∈ Φ.val := begin
   by_contra,
   cases Φ with Φ hΦ,
   apply hΦ.right,
@@ -59,8 +74,7 @@ lemma comp_all_in_flag {α : Type*} [bg : partial_order α] {a : α} (Φ : flag 
       exact hΦ.left,
     },
     intros _ hbΦ _,
-    sorry,
-    --exact comp_of_comp' a b (ha b hbΦ),
+    exact (ha b hbΦ),
   },
   exact set.ssubset_insert h,
 end
@@ -204,6 +218,7 @@ instance smul : has_scalar (automorphism α) (flag α) :=
 theorem smul_def.eq' (γ : automorphism α) (Φ : flag α) : (γ • Φ).val = γ.hom '' Φ.val :=
 rfl
 
+/-- The group action of the automorphism group of a poset on its flags. -/
 instance : mul_action (automorphism α) (flag α) := 
 { one_smul := by rintro ⟨b, _⟩; apply subtype.eq; exact set.image_id b,
   mul_smul := begin

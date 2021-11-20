@@ -115,14 +115,14 @@ end bounded_graded
 
 /-- `⊥` belongs to every flag. -/
 theorem bot_in_flag {α : Type*} [bg : bounded_graded α] (Φ : flag α) : ⊥ ∈ Φ.val :=
-sorry
---comp_all_in_flag Φ (λ b _, or.inl bot_le)
+comp_all_in_flag Φ (λ b _, or.inl bot_le)
 
 /-- `⊤` belongs to every flag. -/
 theorem top_in_flag {α : Type*} [bg : bounded_graded α] (Φ : flag α) : ⊤ ∈ Φ.val :=
 comp_all_in_flag Φ (λ b _, or.inr le_top)
 
 /-- If `x < y` but `y` does not cover `x`, then there's an element in between. -/
+-- do we need this?
 lemma between_of_ncover {α : Type*} [bg : bounded_graded α] {x y : α} (hnxy : ¬x ⋖ y) : x < y → ∃ z, x < z ∧ z < y :=
 begin
   intros hxy,
@@ -134,6 +134,7 @@ begin
   exact hne z hxz hzy,
 end
 
+/-- If `y` covers `x` when restricted to the flag, then `y` covers `x`. -/
 lemma cover_of_flag_cover {α : Type*} [bg : bounded_graded α] (Φ : flag α) {x y : α} (hx : x ∈ Φ.val) (hy : y ∈ Φ.val) :
 x < y → (¬∃ z ∈ Φ.val, z ∈ set.Ioo x y) → x ⋖ y :=
 begin
@@ -141,17 +142,29 @@ begin
   use hxy,
   intro z,
   push_neg at h,
-  by_contra hz,
+  by_contra hzi,
   apply h z, {
+    cases hzi with hxz hzy, 
     apply comp_all_in_flag,
     intros w hw,
     have hwi := h w hw,
     simp at hwi,
     by_cases hxw : x < w, {
-      have := hwi hxw,sorry,
-    },sorry,
+      refine or.inl (le_of_lt _),
+      cases flag.comparable Φ hy hw with hyw hwy, {
+        exact lt_trans hzy hyw,
+      },
+      cases eq_or_lt_of_le hwy with hwy hwy, {
+        rwa hwy,
+      },
+      exact false.elim ((hwi hxw) hwy),
+    },
+    cases flag.comparable Φ hx hw with hxw' hwx, {
+      exact false.elim (hxw hxw'),
+    },
+    exact or.inr (le_trans hwx (le_of_lt hxz)),
   },
-  exact hz,
+  exact hzi,
 end
 
 /-- `grade` has a strongly monotone inverse in flags. -/
@@ -201,21 +214,22 @@ lemma flag_grade' {α : Type*} [bg : bounded_graded α] (Φ : flag α) :
 begin
   intro n,
   apply nat.strong_induction_on n,
-  intros n m x y hx hy hg r hr,
-  rw hg at hr,
+  intros n H x y hx hy hg r hr,
 
-  -- n = 0
-  induction n with n hn, {
+  -- `n` = 0.
+  induction n with n _, {
     use x,
     split, {
       exact hx,
     },
+    rw hg at hr,
     simp at hr,
     exact hr.symm,
   },
 
-  -- n = 1
-  induction n with n hn, {
+  -- `n` = 1.
+  induction n with n _, {
+    rw hg at hr,
     simp at hr,
     cases nat_between (bg.grade x) r hr.left hr.right with heq heqs, {
       exact ⟨x, hx, heq⟩,
@@ -224,19 +238,45 @@ begin
     exact ⟨y, hy, heqs⟩,
   },
 
-  -- Other values
-  by_cases hxy : x ⋖ y, {
+  -- Otherwise, `y` can't cover `x`.
+  have hnxy : ¬x ⋖ y := begin
+    intro hxy,
     have h : bg.grade y = bg.grade x + 1 := bg.hcovers x y hxy,
     rw h at hg,
-    exfalso,
     apply ne_of_lt (nat.zero_lt_succ n),
     exact nat.succ.inj ((add_right_inj (bg.grade x)).mp hg),
-  },
+  end,
 
-  have h₁ : x < y := sorry,
-  cases between_of_ncover hxy h₁ with a,
+  -- `x < y`.
+  have hxy : x < y := begin
+    have hg' : bg.grade x < bg.grade x + n.succ.succ := nat.lt_add_of_pos_right (nat.zero_lt_succ _),
+    rw ← hg at hg',
+    exact lt_of_grade_lt_flag Φ hx hy hg',
+  end,
 
-  sorry,
+  -- Moreover, `y` can't cover `x` within the flag.
+  cases hr with hgxr hrgy,
+  have h : ∃ (z : α) (H : z ∈ Φ.val), z ∈ set.Ioo x y := begin
+    by_contra h,
+    apply hnxy,
+    apply cover_of_flag_cover Φ hx hy hxy,
+    exact h,
+  end,
+
+  rcases h with ⟨z, hz, hxz, hzy⟩,
+  have hrz : r ≤ bg.grade z ∨ bg.grade z ≤ r := sorry,
+  cases hrz with hrz hrz, {
+    have m : ℕ := (bg.grade x - bg.grade z),
+    have hm : bg.grade z + m = bg.grade x := sorry,
+    have hmn : m < n.succ.succ := sorry,
+    have hri : r ∈ set.Icc (bg.grade z) (bg.grade x) := sorry,
+    exact H m hmn z x hz hx hm.symm r hri,
+  },  
+  have m : ℕ := (bg.grade z - bg.grade y),
+  have hm : bg.grade y + m = bg.grade z := sorry,
+  have hmn : m < n.succ.succ := sorry,
+  have hri : r ∈ set.Icc (bg.grade y) (bg.grade z) := sorry,
+  exact H m hmn y z hy hz hm.symm r hri,
 end
 
 /-- The diamond property between two elements. -/
@@ -247,22 +287,6 @@ x ≤ y → bg.grade y = bg.grade x + 2 → ∃ a b ∈ set.Ioo x y, a ≠ b ∧
     diamond property. -/
 structure pre_polytope (α : Type*) [bounded_graded α] :=
 (diamond (x y : α) : diamond x y)
-
-/-- Comparability is reflexive. -/
-lemma comparable.refl {α : Type*} [partial_order α] {x : α} : comparable x x :=
-or.inr rfl.le
-
-/-- Comparability is symmetric. -/
--- todo: this proof can be fixed by using the equivalence between comparable and comparable'.
-lemma comparable.symm {α : Type*} [partial_order α] {x y : α} : comparable x y → comparable y x :=
-begin
-  rintro (hle | hle), {
-    --exact or.inr hle,
-    sorry,
-  },
-  --exact or.inl hle,
-  sorry,
-end
 
 /-- The type `connected_ind a b` is the type of all paths from `a` to `b` 
     passing only through proper elements. Giving an instance of this type is
