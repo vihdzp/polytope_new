@@ -64,13 +64,30 @@ noncomputable instance flag.linear_order (Φ : flag α) : linear_order Φ :=
   decidable_le := classical.dec_rel _,
   ..subtype.partial_order _ }
 
-end
-
 /-- An element comparable with everything in a flag belongs to it. -/
-lemma comp_all_in_flag {α : Type*} [partial_order α] {a : α} (Φ : flag α) (ha : ∀ b ∈ Φ.val, comparable' a b) : a ∈ Φ.val := begin
+lemma flag.mem_flag_of_comp {a : α} (Φ : flag α) (ha : ∀ b ∈ Φ.val, comparable' a b) : a ∈ Φ.val :=
+begin
   by_contra,
   refine Φ.prop.right ⟨set.insert a Φ, _, set.ssubset_insert h⟩,
   exact zorn.chain_insert Φ.prop.left (λ _ hbΦ _, ha _ hbΦ)
+end
+
+/-- `⊥` belongs to every flag. -/
+theorem flag.bot_in_flag [order_bot α] (Φ : flag α) : ⊥ ∈ Φ.val :=
+flag.mem_flag_of_comp  Φ (λ b _, or.inl bot_le)
+
+instance flag.order_bot [order_bot α] (Φ : flag α) : order_bot Φ :=
+{ bot := ⟨⊥, Φ.bot_in_flag⟩,
+  bot_le := λ x, order_bot.bot_le x.val }
+
+/-- `⊤` belongs to every flag. -/
+theorem flag.top_in_flag [order_top α] (Φ : flag α) : ⊤ ∈ Φ.val :=
+flag.mem_flag_of_comp  Φ (λ b _, or.inr le_top)
+
+instance flag.order_top [order_top α] (Φ : flag α) : order_top Φ :=
+{ top := ⟨⊤, Φ.top_in_flag⟩,
+  le_top := λ x, order_top.le_top x.val }
+
 end
 
 /-- The category of posets of type α. -/
