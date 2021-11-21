@@ -115,12 +115,14 @@ begin
       exact or.inr (le_trans hwx (le_of_lt hxz)), },
 end
 
+/-- Flags are bounded graded posets. -/
 instance flag.bounded_graded {α : Type*} [bg : bounded_graded α] (Φ : flag α) : bounded_graded Φ :=
 { grade := λ x, grade x.val,
   grade_bot := bg.grade_bot,
   strict_mono := λ a b hab, has_grade.strict_mono hab,
   hcovers := λ x ⟨y, hy⟩ hcov, has_grade.hcovers (Φ.cover_of_flag_cover hcov), }
 
+/-- Grade is injective over flags. -/
 theorem flag.grade.injective {α : Type*} [bounded_graded α] (Φ : flag α) : function.injective (grade : Φ → ℕ) :=
 has_grade.strict_mono.injective
 
@@ -166,7 +168,7 @@ end
 /-- A set of nats without gaps is an interval. -/
 private lemma all_ioo_of_ex_ioo {P : ℕ → Prop} (hP : ∀ a b, P a → P b → (nonempty (set.Ioo a b)) → ∃ c ∈ set.Ioo a b, P c) :
   ∀ a b, P a → P b → ∀ c ∈ set.Ioo a b, P c :=
-λ _ b, all_ioo_of_ex_ioo' b (λ c d hdc, hP c d) _ _ le_add_self
+λ _ b, all_ioo_of_ex_ioo' b (λ c d _, hP c d) _ _ le_add_self
 
 /-- A bounded set of nats without gaps is an interval. -/
 lemma all_icc_of_ex_ioo {P : ℕ → Prop} (hP : ∀ a b, P a → P b → (nonempty (set.Ioo a b)) → ∃ c ∈ set.Ioo a b, P c) :
@@ -192,7 +194,7 @@ begin
   refine h z hzi
 end
 
-/-- `grade` has a monotone inverse in flags. -/
+/-- Grade has a monotone inverse in flags. -/
 lemma le_of_grade_le_flag (Φ : flag α) {x y : Φ} : grade x ≤ grade y → x ≤ y :=
 begin
   contrapose,
@@ -200,7 +202,7 @@ begin
   exact lt_of_not_ge hnxy
 end
 
-/-- `grade` has a strongly monotone inverse in flags. -/
+/-- Grade has a strongly monotone inverse in flags. -/
 lemma lt_of_grade_lt_flag {Φ : flag α} {x y : Φ} (hxy : grade x < grade y) : x < y :=
 (lt_or_eq_of_le (le_of_grade_le_flag Φ (le_of_lt hxy))).elim id
   (λ h, let h := (subtype.eq h).subst hxy in (nat.lt_asymm h h).elim)
@@ -215,6 +217,7 @@ lemma between_of_ncover {x y : α} (hnxy : ¬x ⋖ y) (hxy : x < y) :
 by by_contra hne; push_neg at hne; refine hnxy ⟨hxy, λ z h, hne z h.left h.right⟩
 
 /-- The set of grades in a flag has no gaps. -/
+-- We should probably clean this up.
 lemma grade_ioo {α : Type*} [bounded_graded α] (Φ : flag α) (m n : ℕ):
   is_grade Φ m → is_grade Φ n → (nonempty (set.Ioo m n)) → ∃ r ∈ set.Ioo m n, is_grade Φ r :=
 begin
