@@ -7,6 +7,9 @@ open category_theory
 def flag (α : Type*) [partial_order α] : Type* :=
 {c : set α // @zorn.is_max_chain α (≤) c}
 
+instance flag.has_mem (α : Type*) [partial_order α] : has_mem α (flag α) :=
+⟨λ a Φ, a ∈ Φ.val⟩
+
 section
 variables {α : Type*} [partial_order α]
 
