@@ -90,9 +90,46 @@ instance Icc {α : Type*} [bounded_graded α] (x y : α) (h : x ≤ y) : bounded
 
 variables {α : Type*} [bounded_graded α]
 
-/-- `⊥` belongs to every flag. -/
-theorem bot_in_flag (Φ : flag α) : ⊥ ∈ Φ.val :=
-comp_all_in_flag Φ (λ b _, or.inl bot_le)
+theorem flag.covers_of_val_covers {α : Type*} [bounded_graded α] {Φ : flag α} {x y : Φ} :
+  x.val ⋖ y.val → x ⋖ y :=
+λ ⟨hxy, hz⟩, ⟨hxy, λ z, hz _⟩
+
+/-- If `y` covers `x` when restricted to the flag, then `y` covers `x`. -/
+lemma flag.cover_of_flag_cover {α : Type*} [bounded_graded α] (Φ : flag α) {x y : Φ} :
+  x < y → (¬∃ z ∈ Φ, z ∈ set.Ioo x.val y) → x.val ⋖ y.val :=
+begin
+  refine λ hxy h, ⟨hxy, λ z hzi, _⟩,
+  push_neg at h,
+  refine h z _ hzi,
+  cases hzi with hxz hzy,
+  refine flag.mem_flag_of_comp _ (λ w hw, _),
+  have hwi := h w hw,
+  simp only [set.mem_Ioo, not_and] at hwi,
+  by_cases hxw : x.val < w,
+    { refine or.inl (le_of_lt _),
+      cases flag.comparable Φ y.prop hw with hyw hwy, { exact lt_trans hzy hyw },
+      cases eq_or_lt_of_le hwy with hwy hwy, { rwa hwy },
+      exact (hwi hxw hwy).elim },
+    { cases flag.comparable Φ x.prop hw with hxw' hwx, { exact false.elim (hxw hxw') },
+      exact or.inr (le_trans hwx (le_of_lt hxz)), },
+end
+
+instance flag.bounded_graded {α : Type*} [bg : bounded_graded α] (Φ : flag α) : bounded_graded Φ :=
+{ grade := λ x, grade x.val,
+  grade_bot := bg.grade_bot,
+  strict_mono := λ a b hab, has_grade.strict_mono hab,
+  hcovers :=
+  begin
+    rintros ⟨x, hx⟩ ⟨y, hy⟩ ⟨hxy : x < y, hcov⟩,
+    refine has_grade.hcovers (Φ.cover_of_flag_cover hxy _),
+    rintro ⟨z, hz, hz'⟩,
+    exact hcov ⟨z, hz⟩ hz'
+  end }
+
+theorem flag.grade.injective {α : Type*} [bounded_graded α] (Φ : flag α) : function.injective (grade : Φ → ℕ) :=
+has_grade.strict_mono.injective
+
+namespace bounded_graded
 
 /-- `⊤` belongs to every flag. -/
 theorem top_in_flag (Φ : flag α) : ⊤ ∈ Φ.val :=
