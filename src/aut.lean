@@ -51,7 +51,7 @@ begin
 end
 
 /-- An element comparable with everything in a flag belongs to it. -/
-lemma comp_all_in_flag {α : Type*} [bg : partial_order α] {a : α} (Φ : flag α) (ha : ∀ b ∈ Φ.val, comparable' a b) : a ∈ Φ.val := begin
+lemma comp_all_in_flag {α : Type*} [partial_order α] {a : α} (Φ : flag α) (ha : ∀ b ∈ Φ.val, comparable' a b) : a ∈ Φ.val := begin
   by_contra,
   refine Φ.prop.right ⟨set.insert a Φ, _, set.ssubset_insert h⟩,
   exact zorn.chain_insert Φ.prop.left (λ _ hbΦ _, ha _ hbΦ)

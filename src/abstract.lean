@@ -138,11 +138,20 @@ private lemma all_icc_of_ex_ioo {P : ℕ → Prop} (hP : ∀ a b, P a → P b �
   ∀ a b, P a → P b → ∀ c ∈ set.Ioo a b, P c :=
 λ _ b, all_icc_of_ex_ioo' b (λ c d hdc, hP c d) _ _ le_add_self
 
-/-- If `x < y` but `y` does not cover `x`, then there's an element in between. -/
--- do we need this?
-lemma between_of_ncover {x y : α} (hnxy : ¬x ⋖ y) (hxy : x < y) :
-  ∃ z, x < z ∧ z < y :=
-by by_contra hne; push_neg at hne; refine hnxy ⟨hxy, λ z h, hne z h.left h.right⟩
+/-- An auxiliary result for `flag_grade'`. -/
+lemma all_icc_of_ex_ioo {P : ℕ → Prop} (hP : ∀ a b, P a → P b → (nonempty (set.Ioo a b)) → ∃ c ∈ set.Ioo a b, P c) :
+  ∀ a b, P a → P b → ∀ c ∈ set.Icc a b, P c := 
+begin
+  intros a b ha hb c hci,
+  cases hci with hac hcb, 
+  cases eq_or_lt_of_le hac with hac hac, {
+    rwa ←hac,
+  },
+  cases eq_or_lt_of_le hcb with hcb hcb, {
+    rwa hcb,
+  },
+  exact all_icc_of_ex_ioo hP a b ha hb c ⟨hac, hcb⟩,  
+end
 
 /-- If `y` covers `x` when restricted to the flag, then `y` covers `x`. -/
 lemma cover_of_flag_cover (Φ : flag α) {x y : α} (hx : x ∈ Φ.val)
@@ -164,7 +173,7 @@ begin
       exact or.inr (le_trans hwx (le_of_lt hxz)), },
 end
 
-/-- `grade` has a strongly monotone inverse in flags. -/
+/-- `grade` has a monotone inverse in flags. -/
 lemma le_of_grade_le_flag (Φ : flag α) {x y : α} (hx : x ∈ Φ.val) (hy : y ∈ Φ.val) : 
   grade x ≤ grade y → x ≤ y :=
 begin
@@ -181,79 +190,63 @@ begin
 end
 
 /-- `grade` has a strongly monotone inverse in flags. -/
-lemma lt_of_grade_lt_flag (Φ : flag α) {x y : α} (hx : x ∈ Φ.val) (hy : y ∈ Φ.val)
+lemma lt_of_grade_lt_flag {Φ : flag α} {x y : α} (hx : x ∈ Φ.val) (hy : y ∈ Φ.val)
   (hxy : grade x < grade y) : x < y :=
 (lt_or_eq_of_le (le_of_grade_le_flag Φ hx hy (le_of_lt hxy))).elim id
   (λ h, let h := h.subst hxy in (nat.lt_asymm h h).elim)
 
-lemma flag_grade' (Φ : flag α) {n : ℕ} : ∀ x y ∈ Φ.val, grade y = grade x + n →
-  ∀ r ∈ set.Icc (grade x) (grade y), ∃ z ∈ Φ.val, grade z = r :=
+/-- A number is a grade of some element in a flag. -/
+def is_grade {α : Type*} [bounded_graded α] (Φ : flag α) (n : ℕ) :=
+∃ a ∈ Φ.val, grade a = n
+
+/-- If `x < y` but `y` does not cover `x`, then there's an element in between. -/
+-- do we need this?
+lemma between_of_ncover {x y : α} (hnxy : ¬x ⋖ y) (hxy : x < y) :
+  ∃ z, x < z ∧ z < y :=
+by by_contra hne; push_neg at hne; refine hnxy ⟨hxy, λ z h, hne z h.left h.right⟩
+
+lemma grade_ioo {α : Type*} [bounded_graded α] (Φ : flag α) (m n : ℕ):
+  is_grade Φ m → is_grade Φ n → (nonempty (set.Ioo m n)) → ∃ r ∈ set.Ioo m n, is_grade Φ r :=
 begin
-  apply nat.strong_induction_on n,
-  intros n H x y hx hy hg r hr,
-
-  -- `n` = 0.
-  induction n with n _, {
-    use x,
+  rintros ⟨a, haΦ, ham⟩ ⟨b, hbΦ, hbn⟩ ⟨r, hr⟩,
+  have hmn : m < n := lt_trans hr.left hr.right,
+  have hgagb : grade a < grade b := begin
+    rw ham, 
+    rwa hbn,
+  end,
+  have hab : a < b := lt_of_grade_lt_flag haΦ hbΦ hgagb,
+  have hnab : ¬a ⋖ b := begin
+    intro hcab,
+    have hgab : grade a + 1 < grade b := begin
+      rw ham,
+      rw hbn, 
+      apply lt_of_le_of_lt (nat.succ_le_of_lt hr.left) hr.right,
+    end,
+    have hba : grade b = grade a + 1 := has_grade.hcovers hcab,
+    rw hba at hgab,
+    exact nat.lt_asymm hgab hgab,
+  end, 
+  have hc : ∃ c ∈ Φ.val, c ∈ set.Ioo a b := begin
+    by_contra hc,
+    apply hnab,
+    exact cover_of_flag_cover Φ haΦ hbΦ hab hc,
+  end,
+  rcases hc with ⟨c, hci, hc⟩, 
+  use grade c,
+  split, {
     split, {
-      exact hx,
+      rw ←ham,
+      exact has_grade.strict_mono hc.left,
     },
-    rw hg at hr,
-    simp at hr,
-    exact hr.symm,
+    rw ←hbn,
+    exact has_grade.strict_mono hc.right,
   },
-
-  -- `n` = 1.
-  induction n with n _, {
-    rw hg at hr,
-    simp at hr,
-    cases nat.between hr.left hr.right with heq heqs, {
-      exact ⟨x, hx, heq⟩,
-    },
-    rw hg.symm at heqs,
-    exact ⟨y, hy, heqs⟩,
-  },
-
-  -- Otherwise, `y` can't cover `x`.
-  have hnxy : ¬x ⋖ y := begin
-    intro hxy,
-    have h : grade y = grade x + 1 := has_grade.hcovers hxy,
-    rw h at hg,
-    apply ne_of_lt (nat.zero_lt_succ n),
-    exact nat.succ.inj ((add_right_inj $ grade x).mp hg),
-  end,
-
-  -- `x < y`.
-  have hxy : x < y := begin
-    have hg' : grade x < grade x + n.succ.succ := nat.lt_add_of_pos_right (nat.zero_lt_succ _),
-    rw ← hg at hg',
-    exact lt_of_grade_lt_flag Φ hx hy hg',
-  end,
-
-  -- Moreover, `y` can't cover `x` within the flag.
-  cases hr with hgxr hrgy,
-  have h : ∃ (z : α) (H : z ∈ Φ.val), z ∈ set.Ioo x y := begin
-    by_contra h,
-    apply hnxy,
-    apply cover_of_flag_cover Φ hx hy hxy,
-    exact h,
-  end,
-
-  rcases h with ⟨z, hz, hxz, hzy⟩,
-  have hrz : r ≤ grade z ∨ grade z ≤ r := sorry,
-  cases hrz with hrz hrz, {
-    have m : ℕ := grade x - grade z,
-    have hm : grade z + m = grade x := sorry,
-    have hmn : m < n.succ.succ := sorry,
-    have hri : r ∈ set.Icc (grade z) (grade x) := sorry,
-    exact H m hmn z x hz hx hm.symm r hri,
-  },  
-  have m : ℕ := (grade z - grade y),
-  have hm : grade y + m = grade z := sorry,
-  have hmn : m < n.succ.succ := sorry,
-  have hri : r ∈ set.Icc (grade y) (grade z) := sorry,
-  exact H m hmn y z hy hz hm.symm r hri,
+  exact ⟨c, hci, rfl⟩,
 end
+
+lemma flag_grade' {α : Type*} [bounded_graded α] (Φ : flag α) :
+∀ (x y ∈ Φ.val), ∀ r ∈ set.Icc (grade x) (grade y), ∃ z ∈ Φ.val, grade z = r :=
+λ x y hx hy r hri, (all_icc_of_ex_ioo (grade_ioo Φ)) (grade x) (grade y) ⟨x, hx, rfl⟩ ⟨y, hy, rfl⟩ r hri
 
 end bounded_graded
 
