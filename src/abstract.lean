@@ -222,45 +222,33 @@ lemma between_of_ncover {x y : α} (hnxy : ¬x ⋖ y) (hxy : x < y) :
 by by_contra hne; push_neg at hne; refine hnxy ⟨hxy, λ z h, hne z h.left h.right⟩
 
 /-- The set of grades in a flag has no gaps. -/
--- We should probably clean this up.
 lemma grade_ioo (Φ : flag α) (m n : ℕ):
   is_grade Φ m → is_grade Φ n → (nonempty (set.Ioo m n)) → ∃ r ∈ set.Ioo m n, is_grade Φ r :=
 begin
-  rintros ⟨⟨a, haΦ⟩, ham : grade a = _⟩ ⟨⟨b, hbΦ⟩, hbn : grade b = _⟩ ⟨r, hr⟩,
-  have hmn : m < n := lt_trans hr.left hr.right,
-  have hgagb : grade a < grade b := by rw ham; rwa hbn,
-  change grade (⟨a, haΦ⟩ : Φ) < grade (⟨b, hbΦ⟩ : Φ) at hgagb,
-  have hab : a < b := lt_of_grade_lt_flag hgagb,
-  have hnab : ¬a ⋖ b := begin
-    intro hcab,
-    have hgab : grade a + 1 < grade b := begin
-      rw ham,
-      rw hbn, 
-      apply lt_of_le_of_lt (nat.succ_le_of_lt hr.left) hr.right,
-    end,
-    have hba : grade b = grade a + 1 := has_grade.hcovers hcab,
-    rw hba at hgab,
-    exact nat.lt_asymm hgab hgab,
-  end, 
-  have hc : ∃ c ∈ Φ, c ∈ set.Ioo a b := begin
+  rintros ⟨a, ham⟩ ⟨b, hbn⟩ ⟨_, hrl, hrr⟩,
+  have hc : ∃ c : Φ, c.val ∈ set.Ioo a.val b.val := begin
     by_contra hc,
     push_neg at hc,
-    rw subtype.forall' at hc,
-    apply hnab,
-    have : (⟨a, haΦ⟩ : Φ) < ⟨b, hbΦ⟩ := hab,
-    exact Φ.cover_of_flag_cover ⟨this, hc⟩,
+    have hba : n = m + 1 := begin
+      rw ←ham at *, 
+      rw ←hbn at *,
+      exact has_grade.hcovers ⟨lt_of_grade_lt_flag (lt_trans hrl hrr), hc⟩,
+    end,
+    have := lt_of_le_of_lt (nat.succ_le_of_lt hrl) hrr,
+    rw hba at this,
+    exact nat.lt_asymm this this,
   end,
-  rcases hc with ⟨c, hci, hc⟩, 
+  rcases hc with ⟨c, hac, hcb⟩, 
   use grade c,
   split, {
     split, {
       rw ←ham,
-      exact has_grade.strict_mono hc.left,
+      exact has_grade.strict_mono hac,
     },
     rw ←hbn,
-    exact has_grade.strict_mono hc.right,
+    exact has_grade.strict_mono hcb,
   },
-  exact ⟨⟨c, hci⟩, rfl⟩,
+  exact ⟨c, rfl⟩,
 end
 
 /-- If a flag contains two elements, it contains elements with all grades in between. -/
@@ -274,8 +262,8 @@ theorem flag_grade (Φ : flag α) :
 begin 
   intro n,
   split, {
-    rintro ⟨a, ha⟩,
-    rw ←ha.left,
+    rintro ⟨_, hal, _⟩,
+    rw ←hal,
     exact bounded_graded.monotone le_top,
   },
   intro hn,
