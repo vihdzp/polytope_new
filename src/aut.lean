@@ -16,30 +16,30 @@ variables {α : Type*} [partial_order α]
 /-- Comparable elements in a poset. -/
 @[reducible]
 def comparable (x y : α) : Prop :=
-x < y ∨ y ≤ x
+x ≤ y ∨ y ≤ x
 
 /-- An alternate form of comparability. -/
 @[reducible]
 def comparable' (x y : α) : Prop :=
-x ≤ y ∨ y ≤ x
+x < y ∨ y ≤ x
 
 /-- Both forms of comparability are equivalent. -/
 @[simp]
-lemma comp_iff_comp' (x y : α) : comparable x y ↔ comparable' x y :=
+lemma comp_iff_comp' {x y : α} : comparable x y ↔ comparable' x y :=
 begin
   refine ⟨λ h, _, λ h, _⟩,
   all_goals { cases h with hxy hyx },
+    { exact (eq_or_lt_of_le hxy).elim (λ h, or.inr $ ge_of_eq h) or.inl },
+    { exact or.inr hyx },
     { exact or.inl (le_of_lt hxy) },
     { exact or.inr hyx },
-    { exact (eq_or_lt_of_le hxy).elim (λ h, or.inr $ ge_of_eq h) or.inl },
-    { exact or.inr hyx }
 end
 
 protected theorem comparable.comparable' {x y : α} : comparable x y → comparable' x y :=
-(comp_iff_comp' x y).mp
+(comp_iff_comp').mp
 
 protected theorem comparable'.comparable  {x y : α} : comparable' x y → comparable x y :=
-(comp_iff_comp' x y).mpr
+(comp_iff_comp').mpr
 
 /-- Comparability is reflexive. -/
 @[refl]
@@ -49,35 +49,47 @@ or.inr rfl.le
 /-- Comparability is symmetric. -/
 @[symm]
 lemma comparable.symm {x y : α} : comparable x y → comparable y x :=
-by simp_rw comp_iff_comp'; exact or.symm
+or.symm
 
 /-- Any two elements of a flag are comparable. -/
 lemma flag.comparable (Φ : flag α) : ∀ {x y : α} (hx : x ∈ Φ.val) (hy : y ∈ Φ.val), comparable x y :=
 begin
   intros x y hx hy,
   rcases Φ with ⟨_, hΦ, _⟩,
-  rw comp_iff_comp',
   by_cases heq : x = y,
     { exact or.inl (le_of_eq heq) },
     { exact hΦ x hx y hy heq }
 end
 
+/-- Any two elements of a flag are comparable'. -/
+lemma flag.comparable' (Φ : flag α) : ∀ {x y : α} (hx : x ∈ Φ.val) (hy : y ∈ Φ.val), comparable' x y :=
+begin
+  intros x y hx hy,
+  rw ←comp_iff_comp',
+  exact Φ.comparable hx hy,
+end
+
 noncomputable instance flag.linear_order (Φ : flag α) : linear_order Φ :=
-{ le_total := λ ⟨a, ha⟩ ⟨b, hb⟩, (Φ.comparable ha hb).comparable',
+{ le_total := λ ⟨a, ha⟩ ⟨b, hb⟩, Φ.comparable ha hb,
   decidable_le := classical.dec_rel _,
   ..subtype.partial_order _ }
 
 /-- An element comparable with everything in a flag belongs to it. -/
-lemma flag.mem_flag_of_comp {a : α} (Φ : flag α) (ha : ∀ b ∈ Φ.val, comparable' a b) : a ∈ Φ.val :=
+lemma flag.mem_flag_iff_comp {a : α} (Φ : flag α) : a ∈ Φ.val ↔ ∀ b ∈ Φ.val, comparable a b :=
 begin
+  split, {
+    intros ha b hb,
+    exact Φ.comparable ha hb,
+  },
+  intro hh,
   by_contra,
   refine Φ.prop.right ⟨set.insert a Φ, _, set.ssubset_insert h⟩,
-  exact zorn.chain_insert Φ.prop.left (λ _ hbΦ _, ha _ hbΦ)
+  exact zorn.chain_insert Φ.prop.left (λ _ hbΦ _, hh _ hbΦ),
 end
 
 /-- `⊥` belongs to every flag. -/
 theorem flag.bot_in_flag [order_bot α] (Φ : flag α) : ⊥ ∈ Φ.val :=
-flag.mem_flag_of_comp  Φ (λ b _, or.inl bot_le)
+Φ.mem_flag_iff_comp.mpr (λ b _, or.inl bot_le)
 
 instance flag.order_bot [order_bot α] (Φ : flag α) : order_bot Φ :=
 { bot := ⟨⊥, Φ.bot_in_flag⟩,
@@ -85,7 +97,7 @@ instance flag.order_bot [order_bot α] (Φ : flag α) : order_bot Φ :=
 
 /-- `⊤` belongs to every flag. -/
 theorem flag.top_in_flag [order_top α] (Φ : flag α) : ⊤ ∈ Φ.val :=
-flag.mem_flag_of_comp  Φ (λ b _, or.inr le_top)
+Φ.mem_flag_iff_comp.mpr (λ b _, comparable'.comparable (or.inr le_top))
 
 instance flag.order_top [order_top α] (Φ : flag α) : order_top Φ :=
 { top := ⟨⊤, Φ.top_in_flag⟩,

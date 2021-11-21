@@ -104,15 +104,15 @@ begin
     replace h : ∀ z ∈ Φ, z ∉ set.Ioo x.val y := λ z hz, h ⟨z, hz⟩,
     refine h z _ hzi,
     cases hzi with hxz hzy,
-    refine flag.mem_flag_of_comp _ (λ w hw, _),
+    refine (flag.mem_flag_iff_comp _).mpr (λ w hw, _),
     have hwi := h w hw,
     simp only [set.mem_Ioo, not_and] at hwi,
     by_cases hxw : x.val < w,
       { refine or.inl (le_of_lt _),
-        cases Φ.comparable y.prop hw with hyw hwy, { exact lt_trans hzy hyw },
+        cases Φ.comparable' y.prop hw with hyw hwy, { exact lt_trans hzy hyw },
         cases eq_or_lt_of_le hwy with hwy hwy, { rwa hwy },
         exact (hwi hxw hwy).elim },
-      { cases Φ.comparable x.prop hw with hxw' hwx, { exact (hxw hxw').elim },
+      { cases Φ.comparable' x.prop hw with hxw' hwx, { exact (hxw hxw').elim },
         exact or.inr (le_trans hwx (le_of_lt hxz)), },
   },
   exact λ ⟨hxy, hz⟩, ⟨hxy, λ _, hz _⟩,
@@ -233,7 +233,7 @@ begin
     rw hba at this,
     exact nat.lt_asymm this this,
   end,
-  
+
   rcases hc with ⟨c, hac, hcb⟩, 
   use grade c,
   split, {
@@ -285,7 +285,7 @@ end bounded_graded
 
 /-- The diamond property between two elements. -/
 def diamond {α : Type*} [bounded_graded α] (x y : α) : Prop :=
-x ≤ y → grade y = grade x + 2 → ∃ a b ∈ set.Ioo x y, a ≠ b ∧ ∀ c ∈ set.Ioo x y, c = a ∨ c = b
+x ≤ y → grade y = grade x + 2 → ∃ a b, a ≠ b ∧ set.Ioo x y = {a, b}
 
 /-- A pre-polytope is a bounded graded partial order that satisfies the 
     diamond property. -/
@@ -293,7 +293,7 @@ class pre_polytope (α : Type*) extends bounded_graded α :=
 (diamond (x y : α) : diamond x y)
 
 @[reducible]
-def set.is_singleton {β : Type*} (s : set β) := ∃ a, ∀ b, b ∈ s → a = b
+def set.is_singleton {β : Type*} (s : set β) := ∃ a, s = {a}
 
 namespace flag
 variables {α : Type*} [pre_polytope α]
@@ -306,11 +306,10 @@ def flag_adj (j : ℕ) (Φ Ψ : flag α) : Prop :=
 lemma subset_iff_eq_flag (Φ Ψ : flag α) : Φ.val ⊆ Ψ.val ↔ Φ = Ψ := begin
   split, {
     intro hΦΨ,
-    rcases Φ with ⟨Φ, hcΦ, hΦ⟩,
-    rcases Ψ with ⟨Ψ, hcΨ, hΨ⟩,
-    cases set.eq_or_ssubset_of_subset hΦΨ, {
-      exact subtype.ext_val h,
-    },
+    rcases Φ with ⟨_, _, hΦ⟩,
+    rcases Ψ with ⟨Ψ, hcΨ, _⟩,
+    cases set.eq_or_ssubset_of_subset hΦΨ, 
+    exact subtype.ext_val h,
     exact (hΦ ⟨Ψ, hcΨ, h⟩).elim,
   },
   intro h,
@@ -319,7 +318,7 @@ end
 
 /-- Flag adjacency is irreflexive. -/
 instance flag_adj.is_irrefl (j : ℕ) : is_irrefl (flag α) (flag_adj j) :=
-⟨λ _ hΦ, hΦ.left rfl⟩ 
+⟨λ _ ⟨hΦ, _⟩, hΦ rfl⟩ 
 
 lemma flag_adj' (Φ Ψ : flag α) : (∃ j, flag_adj j Φ Ψ) ↔ set.is_singleton (Φ.val \ Ψ.val) :=
 begin
@@ -333,10 +332,10 @@ begin
     end,
     cases h with a ha, 
     use a,
-    intros b hb,
-    have hab : grade a = grade b := begin
-      rw [hj.right a ha, hj.right b hb],
-    end,
+    --intros b hb,
+    --have hab : grade a = grade b := begin
+   --   rw [hj.right a ha, hj.right b hb],
+   -- end,
     sorry,
   },
   sorry,
