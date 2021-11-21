@@ -7,19 +7,22 @@ open category_theory
 def flag (α : Type*) [partial_order α] : Type* :=
 {c : set α // @zorn.is_max_chain α (≤) c}
 
+section
+variables {α : Type*} [partial_order α]
+
 /-- Comparable elements in a poset. -/
 @[reducible]
-def comparable {α : Type*} [partial_order α] (x y : α) : Prop :=
+def comparable (x y : α) : Prop :=
 x < y ∨ y ≤ x
 
 /-- An alternate form of comparability. -/
 @[reducible]
-def comparable' {α : Type*} [partial_order α] (x y : α) : Prop :=
+def comparable' (x y : α) : Prop :=
 x ≤ y ∨ y ≤ x
 
 /-- Both forms of comparability are equivalent. -/
 @[simp]
-lemma comp_iff_comp' {α : Type*} [partial_order α] (x y : α) : comparable x y ↔ comparable' x y :=
+lemma comp_iff_comp' (x y : α) : comparable x y ↔ comparable' x y :=
 begin
   refine ⟨λ h, _, λ h, _⟩,
   all_goals { cases h with hxy hyx },
@@ -29,18 +32,24 @@ begin
     { exact or.inr hyx }
 end
 
+protected theorem comparable.comparable' {x y : α} : comparable x y → comparable' x y :=
+(comp_iff_comp' x y).mp
+
+protected theorem comparable'.comparable  {x y : α} : comparable' x y → comparable x y :=
+(comp_iff_comp' x y).mpr
+
 /-- Comparability is reflexive. -/
 @[refl]
-lemma comparable.refl {α : Type*} [partial_order α] {x : α} : comparable x x :=
+lemma comparable.refl {x : α} : comparable x x :=
 or.inr rfl.le
 
 /-- Comparability is symmetric. -/
 @[symm]
-lemma comparable.symm {α : Type*} [partial_order α] {x y : α} : comparable x y → comparable y x :=
+lemma comparable.symm {x y : α} : comparable x y → comparable y x :=
 by simp_rw comp_iff_comp'; exact or.symm
 
 /-- Any two elements of a flag are comparable. -/
-lemma flag.comparable {α : Type*} [partial_order α] (Φ : flag α) : ∀ {x y : α} (hx : x ∈ Φ.val) (hy : y ∈ Φ.val), comparable x y :=
+lemma flag.comparable (Φ : flag α) : ∀ {x y : α} (hx : x ∈ Φ.val) (hy : y ∈ Φ.val), comparable x y :=
 begin
   intros x y hx hy,
   rcases Φ with ⟨_, hΦ, _⟩,
@@ -48,6 +57,8 @@ begin
   by_cases heq : x = y,
     { exact or.inl (le_of_eq heq) },
     { exact hΦ x hx y hy heq }
+end
+
 end
 
 /-- An element comparable with everything in a flag belongs to it. -/
