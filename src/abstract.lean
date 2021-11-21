@@ -107,8 +107,8 @@ begin
     { exact or.inr (or.inr ⟨hb, and.right ‹_›⟩) }
 end
 
-/-- An auxiliary result for `flag_grade'`. -/
-private lemma all_icc_of_ex_ioo' {P : ℕ → Prop} (n : ℕ) (hP : ∀ a b, b ≤ a + n → P a → P b → nonempty (set.Ioo a b) → ∃ c ∈ set.Ioo a b, P c) :
+/-- A bounded set of nats without gaps is an interval. -/
+private lemma all_ioo_of_ex_ioo' {P : ℕ → Prop} (n : ℕ) (hP : ∀ a b, b ≤ a + n → P a → P b → nonempty (set.Ioo a b) → ∃ c ∈ set.Ioo a b, P c) :
   ∀ a b, b ≤ a + n → P a → P b → ∀ c ∈ set.Ioo a b, P c :=
 begin
   induction n with n hP',
@@ -133,12 +133,12 @@ begin
   exact hba.trans (nat.le_succ _),
 end
 
-/-- An auxiliary result for `flag_grade'`. -/
-private lemma all_icc_of_ex_ioo {P : ℕ → Prop} (hP : ∀ a b, P a → P b → (nonempty (set.Ioo a b)) → ∃ c ∈ set.Ioo a b, P c) :
+/-- A set of nats without gaps is an interval. -/
+private lemma all_ioo_of_ex_ioo {P : ℕ → Prop} (hP : ∀ a b, P a → P b → (nonempty (set.Ioo a b)) → ∃ c ∈ set.Ioo a b, P c) :
   ∀ a b, P a → P b → ∀ c ∈ set.Ioo a b, P c :=
-λ _ b, all_icc_of_ex_ioo' b (λ c d hdc, hP c d) _ _ le_add_self
+λ _ b, all_ioo_of_ex_ioo' b (λ c d hdc, hP c d) _ _ le_add_self
 
-/-- An auxiliary result for `flag_grade'`. -/
+/-- A bounded set of nats without gaps is an interval. -/
 lemma all_icc_of_ex_ioo {P : ℕ → Prop} (hP : ∀ a b, P a → P b → (nonempty (set.Ioo a b)) → ∃ c ∈ set.Ioo a b, P c) :
   ∀ a b, P a → P b → ∀ c ∈ set.Icc a b, P c := 
 begin
@@ -150,7 +150,7 @@ begin
   cases eq_or_lt_of_le hcb with hcb hcb, {
     rwa hcb,
   },
-  exact all_icc_of_ex_ioo hP a b ha hb c ⟨hac, hcb⟩,  
+  exact all_ioo_of_ex_ioo hP a b ha hb c ⟨hac, hcb⟩,  
 end
 
 /-- If `y` covers `x` when restricted to the flag, then `y` covers `x`. -/
@@ -200,11 +200,11 @@ def is_grade {α : Type*} [bounded_graded α] (Φ : flag α) (n : ℕ) :=
 ∃ a ∈ Φ.val, grade a = n
 
 /-- If `x < y` but `y` does not cover `x`, then there's an element in between. -/
--- do we need this?
 lemma between_of_ncover {x y : α} (hnxy : ¬x ⋖ y) (hxy : x < y) :
   ∃ z, x < z ∧ z < y :=
 by by_contra hne; push_neg at hne; refine hnxy ⟨hxy, λ z h, hne z h.left h.right⟩
 
+/-- The set of grades in a flag has no gaps. -/
 lemma grade_ioo {α : Type*} [bounded_graded α] (Φ : flag α) (m n : ℕ):
   is_grade Φ m → is_grade Φ n → (nonempty (set.Ioo m n)) → ∃ r ∈ set.Ioo m n, is_grade Φ r :=
 begin
@@ -244,8 +244,9 @@ begin
   exact ⟨c, hci, rfl⟩,
 end
 
+/-- If a flag contains two elements, it contains elements with all grades in between. -/
 lemma flag_grade' {α : Type*} [bounded_graded α] (Φ : flag α) :
-∀ (x y ∈ Φ.val), ∀ r ∈ set.Icc (grade x) (grade y), ∃ z ∈ Φ.val, grade z = r :=
+  ∀ (x y ∈ Φ.val), ∀ r ∈ set.Icc (grade x) (grade y), ∃ z ∈ Φ.val, grade z = r :=
 λ x y hx hy r hri, (all_icc_of_ex_ioo (grade_ioo Φ)) (grade x) (grade y) ⟨x, hx, rfl⟩ ⟨y, hy, rfl⟩ r hri
 
 end bounded_graded
@@ -256,8 +257,71 @@ x ≤ y → grade y = grade x + 2 → ∃ a b ∈ set.Ioo x y, a ≠ b ∧ ∀ c
 
 /-- A pre-polytope is a bounded graded partial order that satisfies the 
     diamond property. -/
-structure pre_polytope (α : Type*) [bounded_graded α] :=
+class pre_polytope (α : Type*) extends bounded_graded α :=
 (diamond (x y : α) : diamond x y)
+
+@[reducible]
+def set.is_singleton {β : Type*} (s : set β) := ∃ a, ∀ b, b ∈ s → a = b
+
+variables {α : Type*} [pre_polytope α]
+
+/-- Two flags are `j`-adjacent when they share all elements save for the one of grade `j`. -/
+def flag_adj (j : ℕ) (Φ Ψ : flag α) : Prop :=
+Φ ≠ Ψ ∧ ∀ a ∈ Φ.val \ Ψ.val, grade a = j
+
+/-- Two flags are subsets of one another iff they're equal. -/
+lemma subset_iff_eq_flag (Φ Ψ : flag α) : Φ.val ⊆ Ψ.val ↔ Φ = Ψ := begin
+  split, {
+    intro hΦΨ,
+    rcases Φ with ⟨Φ, hcΦ, hΦ⟩,
+    rcases Ψ with ⟨Ψ, hcΨ, hΨ⟩,
+    cases set.eq_or_ssubset_of_subset hΦΨ, {
+      exact subtype.ext_val h,
+    },
+    exfalso,
+    exact hΦ ⟨Ψ, hcΨ, h⟩,
+  },
+  intro h,
+  rw h,
+end
+
+/-- Flag adjacency is irreflexive. -/
+instance flag_adj.is_irrefl (j : ℕ) : is_irrefl (flag α) (flag_adj j) :=
+⟨λ _ hΦ, hΦ.left rfl⟩ 
+
+lemma flag_adj' (Φ Ψ : flag α) : (∃ j, flag_adj j Φ Ψ) ↔ (Φ.val \ Ψ.val).is_singleton :=
+begin
+  split, {
+    rintro ⟨j, hj⟩,
+    have h : set.nonempty (Φ.val \ Ψ.val) := begin
+      rw set.nonempty_diff,
+      intro hΦΨ,
+      rw subset_iff_eq_flag at hΦΨ,
+      exact hj.left hΦΨ,
+    end,
+    cases h with a ha, 
+    use a,
+    intros b hb,
+    have hab : grade a = grade b := begin
+      rw hj.right a ha,
+      rw hj.right b hb,
+    end,
+    sorry,
+  },
+  sorry,
+end
+
+lemma flag_adj.symm (Φ Ψ : flag α) (j : ℕ) : flag_adj j Φ Ψ → flag_adj j Ψ Φ :=
+begin
+  intro hf,
+  sorry,
+end
+
+lemma ex_flag_adj' (Φ : flag α) (j : ℕ) :
+  ∃ Ψ, flag_adj j Φ Ψ := sorry
+
+theorem ex_flag_adj (Φ : flag α) (j : ℕ) :
+  ∃! Ψ, flag_adj j Φ Ψ := sorry
 
 /-- The type `connected_ind a b` is the type of all paths from `a` to `b` 
     passing only through proper elements. Giving an instance of this type is
@@ -281,5 +345,5 @@ def section_connected {α : Type*} [bounded_graded α] (x y : α) : Prop :=
 x ≤ y → @bounded_graded.connected _ (bounded_graded.Icc x y ‹_›)
 
 /-- A polytope is a strongly connected pre-polytope. -/
-structure polytope (α : Type*) [bounded_graded α] extends pre_polytope α :=
+class polytope (α : Type*) extends pre_polytope α :=
 (scon : ∀ x y : α, section_connected x y)
