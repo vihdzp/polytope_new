@@ -90,7 +90,6 @@ flag.mem_flag_of_comp  Φ (λ b _, or.inr le_top)
 instance flag.order_top [order_top α] (Φ : flag α) : order_top Φ :=
 { top := ⟨⊤, Φ.top_in_flag⟩,
   le_top := λ x, order_top.le_top x.val }
-
 end
 
 /-- The category of posets of type α. -/

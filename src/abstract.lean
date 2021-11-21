@@ -31,7 +31,7 @@ instance Icc (x y : α) (h : x ≤ y) : bounded_order (set.Icc x y) :=
 end bounded_order
 
 /-- A bounded graded order has an order homomorphism into the naturals, such 
-    that ⊥ has grade 0, and the homomorphism respects covering. -/
+    that `⊥` has grade 0, and the homomorphism respects covering. -/
 @[protect_proj, field_simps]
 class {u} has_grade (α : Type u) [preorder α] [bounded_order α] : Type u :=
 (grade : α → ℕ)
@@ -122,6 +122,10 @@ instance flag.bounded_graded {α : Type*} [bg : bounded_graded α] (Φ : flag α
   strict_mono := λ a b hab, has_grade.strict_mono hab,
   hcovers := λ x ⟨y, hy⟩ hcov, has_grade.hcovers (Φ.cover_of_flag_cover hcov), }
 
+/-- Grades in flags coincide with the grades in the poset. -/
+@[simp]
+lemma flag.grade_eq_grade {α : Type*} [bg : bounded_graded α] {Φ : flag α} (a : Φ) : grade a = grade a.val := by refl
+
 /-- Grade is injective over flags. -/
 theorem flag.grade.injective {α : Type*} [bounded_graded α] (Φ : flag α) : function.injective (grade : Φ → ℕ) :=
 has_grade.strict_mono.injective
@@ -195,8 +199,9 @@ begin
 end
 
 /-- Grade has a monotone inverse in flags. -/
-lemma le_of_grade_le_flag (Φ : flag α) {x y : Φ} : grade x ≤ grade y → x ≤ y :=
+lemma le_of_grade_le_flag {Φ : flag α} {x y : Φ} (hxy : grade x ≤ grade y) : x ≤ y :=
 begin
+  revert hxy,
   contrapose,
   refine λ hnxy, not_le_of_gt (has_grade.strict_mono _),
   exact lt_of_not_ge hnxy
@@ -204,7 +209,7 @@ end
 
 /-- Grade has a strongly monotone inverse in flags. -/
 lemma lt_of_grade_lt_flag {Φ : flag α} {x y : Φ} (hxy : grade x < grade y) : x < y :=
-(lt_or_eq_of_le (le_of_grade_le_flag Φ (le_of_lt hxy))).elim id
+(lt_or_eq_of_le (le_of_grade_le_flag (le_of_lt hxy))).elim id
   (λ h, let h := (subtype.eq h).subst hxy in (nat.lt_asymm h h).elim)
 
 /-- A number is a grade of some element in a flag. -/
@@ -218,7 +223,7 @@ by by_contra hne; push_neg at hne; refine hnxy ⟨hxy, λ z h, hne z h.left h.ri
 
 /-- The set of grades in a flag has no gaps. -/
 -- We should probably clean this up.
-lemma grade_ioo {α : Type*} [bounded_graded α] (Φ : flag α) (m n : ℕ):
+lemma grade_ioo (Φ : flag α) (m n : ℕ):
   is_grade Φ m → is_grade Φ n → (nonempty (set.Ioo m n)) → ∃ r ∈ set.Ioo m n, is_grade Φ r :=
 begin
   rintros ⟨⟨a, haΦ⟩, ham : grade a = _⟩ ⟨⟨b, hbΦ⟩, hbn : grade b = _⟩ ⟨r, hr⟩,
@@ -259,9 +264,40 @@ begin
 end
 
 /-- If a flag contains two elements, it contains elements with all grades in between. -/
-lemma flag_grade' {α : Type*} [bounded_graded α] (Φ : flag α) (x y : Φ) :
-  ∀ r ∈ set.Icc (grade x.val) (grade y.val), ∃ z : Φ, grade z = r :=
+lemma flag_grade' {Φ : flag α} (x y : Φ) :
+  ∀ r ∈ set.Icc (grade x) (grade y), ∃ z : Φ, grade z = r :=
 λ r hri, (all_icc_of_ex_ioo (grade_ioo Φ)) (grade x) (grade y) ⟨x, rfl⟩ ⟨y, rfl⟩ r hri
+
+/-- A flag has a unique element of grade `r` iff `r ≤ grade ⊤`. -/
+theorem flag_grade (Φ : flag α) :
+  ∀ n : ℕ, (∃! r : Φ, grade r = n) ↔ n ∈ set.Iic (top_grade Φ) :=
+begin 
+  intro n,
+  split, {
+    rintro ⟨a, ha⟩,
+    rw ←ha.left,
+    exact bounded_graded.monotone le_top,
+  },
+  intro hn,
+  have he : ∃ (r : Φ), grade r = n := begin
+    apply flag_grade' ⊥ ⊤ n,
+    split, {
+      have h : grade (⊥ : Φ) = 0 := (flag.bounded_graded Φ).grade_bot,
+      rw h,
+      exact zero_le n,
+    },
+    exact hn,
+  end,
+  cases he with r hr,
+  use r,
+  split, {
+    exact hr,
+  },
+  intros s hs,
+  apply flag.grade.injective,
+  rw hr, 
+  rw hs,
+end
 
 end bounded_graded
 
