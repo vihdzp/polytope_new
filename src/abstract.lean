@@ -1,22 +1,37 @@
 import tactic order.bounded_lattice order.zorn
 import .aut
 
-/-- An auxiliary lemma on natural numbers. -/
-lemma nat.between {a b : ℕ} (hab : a ≤ b) (hba : b ≤ a + 1) : a = b ∨ a + 1 = b :=
-(lt_or_eq_of_le hab).elim
-  (λ hlt, or.inr $ le_antisymm (nat.succ_le_iff.mpr hlt) hba)
-  or.inl
-
 /-- One element covers another when there's no other element strictly in between. -/
 def covers {α : Type*} [preorder α] (y x : α) : Prop :=
 x < y ∧ ∀ z, ¬ (z ∈ set.Ioo x y)
+
+notation x ` ⋗ `:50 y:50 := covers x y
+notation x ` ⋖ `:50 y:50 := covers y x
 
 /-- Covering is irreflexive. -/
 instance covers.is_irrefl {α : Type*} [preorder α] : is_irrefl α covers :=
 ⟨ λ _ ha, ne_of_lt ha.left (refl _) ⟩ 
 
-notation x ` ⋗ `:50 y:50 := covers x y
-notation x ` ⋖ `:50 y:50 := covers y x
+/-- A natural covers another iff it's a successor. -/
+lemma nat.cover_iff_succ (m n : ℕ) : m ⋖ n ↔ n = m + 1 := 
+begin
+  split, {
+    rintro ⟨hmnl, hmnr⟩,
+    cases le_or_gt n (m + 1) with hnm hnm, {
+      exact antisymm hnm (nat.succ_le_of_lt hmnl),
+    },
+    exact (hmnr _ ⟨lt_add_one m, hnm⟩).elim,
+  },
+  intro hnm,
+  split, {
+    rw hnm,
+    exact lt_add_one m,
+  },
+  rintros r ⟨hrl, hrr⟩,
+  have : m + 1 < n := lt_of_le_of_lt (nat.succ_le_of_lt hrl) hrr,
+  rw hnm at this,
+  exact nat.lt_asymm this this,
+end
 
 /-- A bounded order has both a bottom and top element. -/
 class bounded_order (α : Type*) [has_le α] extends order_top α, order_bot α
@@ -95,7 +110,7 @@ instance Icc {α : Type*} [bounded_graded α] (x y : α) (h : x ≤ y) : bounded
 end bounded_graded
 
 /-- One element covers another iff they do so in the flag. -/
-theorem flag.cover_iff_flag_cover {α : Type*} [bounded_graded α] (Φ : flag α) {x y : Φ} :
+theorem flag.cover_iff_flag_cover {α : Type*} [bounded_graded α] {Φ : flag α} (x y : Φ) :
   x ⋖ y ↔ x.val ⋖ y.val :=
 begin
   split, {
@@ -123,7 +138,7 @@ instance flag.bounded_graded {α : Type*} [bg : bounded_graded α] (Φ : flag α
 { grade := λ x, grade x.val,
   grade_bot := bg.grade_bot,
   strict_mono := λ _ _ hab, has_grade.strict_mono hab,
-  hcovers := λ _ _ hcov, has_grade.hcovers (Φ.cover_iff_flag_cover.mp hcov), }
+  hcovers := λ _ _ hcov, has_grade.hcovers ((flag.cover_iff_flag_cover _ _).mp hcov), }
 
 /-- Grades in flags coincide with the grades in the poset. -/
 @[simp]
@@ -133,6 +148,73 @@ by refl
 /-- Grade is injective over flags. -/
 theorem flag.grade.injective {α : Type*} [bounded_graded α] (Φ : flag α) : function.injective (grade : Φ → ℕ) :=
 has_grade.strict_mono.injective
+
+/-- Grade is an order homomorphism in flags. -/
+lemma flag.le_iff_grade_le {α : Type*} [bounded_graded α] {Φ : flag α} (x y : Φ) : x ≤ y ↔ grade x ≤ grade y :=
+begin
+  split, {
+    intro hxy,
+    exact bounded_graded.monotone hxy,
+  },
+  contrapose,
+  refine λ hnxy, not_le_of_gt (has_grade.strict_mono _),
+  exact lt_of_not_ge hnxy,
+end
+
+/-- Grade is an order isomorphism in flags. -/
+lemma flag.lt_of_grade_lt {α : Type*} [bg : bounded_graded α] {Φ : flag α} (x y : Φ) : x < y ↔ grade x < grade y :=
+begin
+  split, {
+    intro hxy,
+    apply bg.strict_mono,
+    exact hxy,
+  },
+  intro hxy,
+  rw lt_iff_le_and_ne,
+  split, {
+    rw flag.le_iff_grade_le,
+    exact le_of_lt hxy,
+  },
+  intro heq,
+  rw heq at hxy,
+  exact nat.lt_asymm hxy hxy,
+end
+
+/-- In flags, `hcovers` is an equivalence. -/
+theorem flag.hcovers {α : Type*} [bg : bounded_graded α] {Φ : flag α} (a b : Φ) : a ⋖ b ↔ grade b = grade a + 1 :=
+begin
+  split, {
+    intro _,
+    apply bg.hcovers,
+    rwa ←flag.cover_iff_flag_cover,
+  },
+  intro hba,
+  split, {
+    rw flag.lt_of_grade_lt,
+    rw hba,
+    exact lt_add_one _,
+  },
+  rintros z ⟨hzl, hzr⟩,
+  rw ←nat.cover_iff_succ at hba,
+  rw flag.lt_of_grade_lt at hzl,
+  rw flag.lt_of_grade_lt at hzr,
+  exact hba.right _ ⟨hzl, hzr⟩,
+end
+
+/-- Two elements in a flag cover each other iff their grades do. -/
+theorem flag.cover_iff_nat_cover {α : Type*} [bg : bounded_graded α] {Φ : flag α} (a b : Φ) :
+a ⋖ b ↔ grade a ⋖ grade b :=
+begin
+  split, {
+    intro _,
+    rw nat.cover_iff_succ,
+    apply bg.hcovers,
+    rwa ←flag.cover_iff_flag_cover,
+  },
+  intro hab,
+  rw flag.hcovers,
+  rwa ←nat.cover_iff_succ,
+end
 
 namespace bounded_graded
 
@@ -190,20 +272,6 @@ begin
   exact all_ioo_of_ex_ioo hP a b ha hb c ⟨hac, hcb⟩,  
 end
 
-/-- Grade has a monotone inverse in flags. -/
-lemma le_of_grade_le_flag {Φ : flag α} {x y : Φ} (hxy : grade x ≤ grade y) : x ≤ y :=
-begin
-  revert hxy,
-  contrapose,
-  refine λ hnxy, not_le_of_gt (has_grade.strict_mono _),
-  exact lt_of_not_ge hnxy
-end
-
-/-- Grade has a strongly monotone inverse in flags. -/
-lemma lt_of_grade_lt_flag {Φ : flag α} {x y : Φ} (hxy : grade x < grade y) : x < y :=
-(lt_or_eq_of_le (le_of_grade_le_flag (le_of_lt hxy))).elim id
-  (λ h, let h := (subtype.eq h).subst hxy in (nat.lt_asymm h h).elim)
-
 /-- A number is a grade of some element in a flag. -/
 def is_grade {α : Type*} [bounded_graded α] (Φ : flag α) (n : ℕ) :=
 ∃ a : Φ, grade a = n
@@ -227,7 +295,7 @@ begin
     have hba : n = m + 1 := begin
       rw ←ham at *, 
       rw ←hbn at *,
-      exact has_grade.hcovers ⟨lt_of_grade_lt_flag (lt_trans hrl hrr), hc⟩,
+      exact has_grade.hcovers ⟨(flag.lt_of_grade_lt _ _).mpr (lt_trans hrl hrr), hc⟩,
     end,
     have := lt_of_le_of_lt (nat.succ_le_of_lt hrl) hrr,
     rw hba at this,
