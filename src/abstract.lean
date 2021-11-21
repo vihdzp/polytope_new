@@ -285,33 +285,31 @@ by by_contra hne; push_neg at hne; refine hnxy ⟨hxy, λ z h, hne z h.left h.ri
 lemma grade_ioo (Φ : flag α) (m n : ℕ) :
   is_grade Φ m → is_grade Φ n → nonempty (set.Ioo m n) → ∃ r ∈ set.Ioo m n, is_grade Φ r :=
 begin
-  rintros ⟨a, ham⟩ ⟨b, hbn⟩ ⟨_, hrl, hrr⟩,
+  rintros ⟨a, ham⟩ ⟨b, hbn⟩ ⟨r, hr⟩,
 
-  -- Make into its own lemma?
-  -- `a ⋖ b` in flags iff `grade a ⋖ grade b`.
-  have hc : ∃ c : Φ, c.val ∈ set.Ioo a.val b.val := begin
+  have hab : ¬a ⋖ b := begin
+    have : ¬m ⋖ n := λ hmn, (hmn.right r) hr,
+    rwa [←ham, ←hbn, ←flag.cover_iff_nat_cover] at this,
+  end,
+  
+  have hc : ∃ c : Φ, c ∈ set.Ioo a b := begin
     by_contra hc,
     push_neg at hc,
-    have hba : n = m + 1 := begin
-      rw ←ham at *, 
-      rw ←hbn at *,
-      exact has_grade.hcovers ⟨(flag.lt_of_grade_lt _ _).mpr (lt_trans hrl hrr), hc⟩,
-    end,
-    have := lt_of_le_of_lt (nat.succ_le_of_lt hrl) hrr,
-    rw hba at this,
-    exact nat.lt_asymm this this,
+    apply hab,
+    split, 
+      { rw [flag.lt_of_grade_lt, ham, hbn], 
+        exact lt_trans hr.left hr.right, },
+    exact hc,
   end,
 
   rcases hc with ⟨c, hac, hcb⟩, 
   use grade c,
-  split, {
-    split, {
-      rw ←ham,
-      exact has_grade.strict_mono hac,
-    },
-    rw ←hbn,
-    exact has_grade.strict_mono hcb,
-  },
+  split, 
+    { split, 
+      { rw ←ham,
+        exact has_grade.strict_mono hac, },
+      rw ←hbn,
+      exact has_grade.strict_mono hcb, },
   exact ⟨c, rfl⟩,
 end
 
@@ -341,9 +339,7 @@ begin
     exact hn,
   end,
   cases he with r hr,
-  use r,
-  split, 
-    { exact hr },
+  use [r, hr],
   intros s hs,
   apply flag.grade.injective,
   rw [hr, hs],
