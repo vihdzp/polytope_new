@@ -17,9 +17,8 @@ lemma nat.cover_iff_succ (m n : ℕ) : m ⋖ n ↔ n = m + 1 :=
 begin
   split, {
     rintro ⟨hmnl, hmnr⟩,
-    cases le_or_gt n (m + 1) with hnm hnm, {
-      exact antisymm hnm (nat.succ_le_of_lt hmnl),
-    },
+    cases le_or_gt n (m + 1) with hnm hnm,
+    exact antisymm hnm (nat.succ_le_of_lt hmnl),
     exact (hmnr _ ⟨lt_add_one m, hnm⟩).elim,
   },
   intro hnm,
@@ -221,7 +220,8 @@ variables {α : Type*} [bounded_graded α]
 /-- A point subdivides an interval into three. -/
 lemma ioo_tricho {a b : ℕ} (c ∈ set.Ioo a b) (d: ℕ) : c = d ∨ c ∈ set.Ioo a d ∨ c ∈ set.Ioo d b :=
 begin
-  by_cases hcd : c = d, { exact or.inl hcd },
+  cases eq_or_ne c d with hcd hcd, 
+    { exact or.inl hcd },
   cases ne.lt_or_lt hcd with ha hb,
     { exact or.inr (or.inl ⟨and.left ‹_›, ha⟩) },
     { exact or.inr (or.inr ⟨hb, and.right ‹_›⟩) }
@@ -261,8 +261,7 @@ private lemma all_ioo_of_ex_ioo {P : ℕ → Prop} (hP : ∀ a b, P a → P b �
 lemma all_icc_of_ex_ioo {P : ℕ → Prop} (hP : ∀ a b, P a → P b → (nonempty (set.Ioo a b)) → ∃ c ∈ set.Ioo a b, P c) :
   ∀ a b, P a → P b → ∀ c ∈ set.Icc a b, P c := 
 begin
-  intros a b ha hb c hci,
-  cases hci with hac hcb, 
+  rintros a b ha hb c ⟨hac, hcb⟩,
   cases eq_or_lt_of_le hac with hac hac, 
     { rwa ←hac },
   cases eq_or_lt_of_le hcb with hcb hcb, 
@@ -277,7 +276,7 @@ def is_grade {α : Type*} [bounded_graded α] (Φ : flag α) (n : ℕ) :=
 /-- If `x < y` but `y` does not cover `x`, then there's an element in between. -/
 lemma between_of_ncover {x y : α} (hnxy : ¬x ⋖ y) (hxy : x < y) :
   ∃ z, x < z ∧ z < y :=
-by by_contra hne; push_neg at hne; exact hnxy ⟨hxy, λ z h, hne z h.left h.right⟩
+by by_contra hne; push_neg at hne; exact hnxy ⟨hxy, λ z ⟨hl, hr⟩, hne z hl hr⟩
 
 /-- The set of grades in a flag has no gaps. -/
 lemma grade_ioo (Φ : flag α) (m n : ℕ) :
@@ -322,15 +321,17 @@ begin
     exact bounded_graded.monotone le_top,
   },
   intro hn,
+
   have he : ∃ (r : Φ), grade r = n := begin
     apply flag_grade' ⊥ ⊤ n,
     split, {
-      have h : grade (⊥ : Φ) = 0 := (flag.bounded_graded Φ).grade_bot,
-      rw h,
+      have : grade (⊥ : Φ) = 0 := (flag.bounded_graded Φ).grade_bot,
+      rw this,
       exact zero_le n,
     },
     exact hn,
   end,
+  
   cases he with r hr,
   use [r, hr],
   intros s hs,
@@ -353,12 +354,27 @@ class pre_polytope (α : Type*) extends bounded_graded α :=
 @[reducible]
 def set.is_singleton {β : Type*} (s : set β) := ∃ a, s = {a}
 
+lemma singleton_nonempty {β : Type*} {s : set β} : set.is_singleton s → s.nonempty :=
+begin
+  rintro ⟨b, hb⟩,
+  use b,
+  rw hb,
+  exact rfl,
+end
+
 namespace flag
 variables {α : Type*} [pre_polytope α]
 
 /-- Two flags are `j`-adjacent when they share all elements save for the one of grade `j`. -/
 def flag_adj (j : ℕ) (Φ Ψ : flag α) : Prop :=
 Φ ≠ Ψ ∧ ∀ a ∈ Φ.val \ Ψ.val, grade a = j
+
+noncomputable def flag_idx (j : ℕ) (Φ : flag α) : Φ := begin
+  by_cases hj : j ≤ (top_grade Φ), {
+    exact classical.some ((bounded_graded.flag_grade Φ j).mpr hj) ,
+  },
+  exact ⊥,
+end
 
 /-- Two flags are subsets of one another iff they're equal. -/
 lemma subset_iff_eq_flag (Φ Ψ : flag α) : Φ.val ⊆ Ψ.val ↔ Φ = Ψ := begin
@@ -378,25 +394,49 @@ end
 instance flag_adj.is_irrefl (j : ℕ) : is_irrefl (flag α) (flag_adj j) :=
 ⟨λ _ ⟨hΦ, _⟩, hΦ rfl⟩ 
 
+/-- Two flags are adjacent iff their difference is a singleton. -/
 lemma flag_adj' (Φ Ψ : flag α) : (∃ j, flag_adj j Φ Ψ) ↔ set.is_singleton (Φ.val \ Ψ.val) :=
 begin
   split, {
-    rintro ⟨j, hj⟩,
+    rintro ⟨j, ⟨hjl, hjr⟩⟩,
     have h : set.nonempty (Φ.val \ Ψ.val) := begin
       rw set.nonempty_diff,
       intro hΦΨ,
       rw subset_iff_eq_flag at hΦΨ,
-      exact hj.left hΦΨ,
+      exact hjl hΦΨ,
     end,
     cases h with a ha, 
     use a,
-    --intros b hb,
-    --have hab : grade a = grade b := begin
-   --   rw [hj.right a ha, hj.right b hb],
-   -- end,
-    sorry,
+    apply set.ext,
+    intro b,
+    split, {
+      intro hb,
+      let a' : Φ := ⟨a, set.mem_of_mem_diff ha⟩,
+      let b' : Φ := ⟨b, set.mem_of_mem_diff hb⟩,
+      have : b' = a' := begin
+        refine (flag.grade.injective _ _).symm,
+        repeat {rw flag.grade_eq_grade},
+        rw [hjr a ha, hjr b hb]
+      end,
+      rwa subtype.ext_iff_val at this,
+    },
+    intro hba,
+    have : b = a := hba,
+    rwa this,
   },
-  sorry,
+  intro h,
+  cases h with a ha,
+  use grade a,
+  split, {
+    intro hΦΨ,
+    rw hΦΨ at ha,
+    have : Ψ.val \ Ψ.val = ∅ := sdiff_self,
+    rw ha at this,
+    exact exists_false (singleton_nonempty ⟨a, this.symm⟩),
+  },
+  intros b hb,
+  have : b = a := by rw ha at hb; exact hb,
+  rw this,
 end
 
 lemma flag_adj.symm (Φ Ψ : flag α) (j : ℕ) : flag_adj j Φ Ψ → flag_adj j Ψ Φ :=
