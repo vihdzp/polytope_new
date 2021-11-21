@@ -59,6 +59,11 @@ begin
     { exact hΦ x hx y hy heq }
 end
 
+noncomputable instance flag.linear_order (Φ : flag α) : linear_order Φ :=
+{ le_total := λ ⟨a, ha⟩ ⟨b, hb⟩, (Φ.comparable ha hb).comparable',
+  decidable_le := classical.dec_rel _,
+  ..subtype.partial_order _ }
+
 end
 
 /-- An element comparable with everything in a flag belongs to it. -/
