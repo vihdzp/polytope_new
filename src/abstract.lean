@@ -90,37 +90,36 @@ instance Icc {α : Type*} [bounded_graded α] (x y : α) (h : x ≤ y) : bounded
 
 end bounded_graded
 
-theorem flag.covers_of_val_covers {α : Type*} [bounded_graded α] {Φ : flag α} {x y : Φ} :
-  x.val ⋖ y.val → x ⋖ y :=
-λ ⟨hxy, hz⟩, ⟨hxy, λ z, hz _⟩
-
-/-- If `y` covers `x` when restricted to the flag, then `y` covers `x`. -/
-lemma flag.cover_of_flag_cover {α : Type*} [bounded_graded α] (Φ : flag α) {x y : Φ} :
-  x ⋖ y → x.val ⋖ y.val :=
+/-- One element covers another iff they do so in the flag. -/
+theorem flag.cover_iff_flag_cover {α : Type*} [bounded_graded α] (Φ : flag α) {x y : Φ} :
+  x ⋖ y ↔ x.val ⋖ y.val :=
 begin
-  refine λ h, ⟨h.left, λ z hzi, _⟩,
-  cases h with hxy h,
-  replace h : ∀ z ∈ Φ, z ∉ set.Ioo x.val y := λ z hz, h ⟨z, hz⟩,
-  refine h z _ hzi,
-  cases hzi with hxz hzy,
-  refine flag.mem_flag_of_comp _ (λ w hw, _),
-  have hwi := h w hw,
-  simp only [set.mem_Ioo, not_and] at hwi,
-  by_cases hxw : x.val < w,
-    { refine or.inl (le_of_lt _),
-      cases flag.comparable Φ y.prop hw with hyw hwy, { exact lt_trans hzy hyw },
-      cases eq_or_lt_of_le hwy with hwy hwy, { rwa hwy },
-      exact (hwi hxw hwy).elim },
-    { cases flag.comparable Φ x.prop hw with hxw' hwx, { exact false.elim (hxw hxw') },
-      exact or.inr (le_trans hwx (le_of_lt hxz)), },
+  split, {
+    refine λ h, ⟨h.left, λ z hzi, _⟩,
+    cases h with hxy h,
+    replace h : ∀ z ∈ Φ, z ∉ set.Ioo x.val y := λ z hz, h ⟨z, hz⟩,
+    refine h z _ hzi,
+    cases hzi with hxz hzy,
+    refine flag.mem_flag_of_comp _ (λ w hw, _),
+    have hwi := h w hw,
+    simp only [set.mem_Ioo, not_and] at hwi,
+    by_cases hxw : x.val < w,
+      { refine or.inl (le_of_lt _),
+        cases flag.comparable Φ y.prop hw with hyw hwy, { exact lt_trans hzy hyw },
+        cases eq_or_lt_of_le hwy with hwy hwy, { rwa hwy },
+        exact (hwi hxw hwy).elim },
+      { cases flag.comparable Φ x.prop hw with hxw' hwx, { exact false.elim (hxw hxw') },
+        exact or.inr (le_trans hwx (le_of_lt hxz)), },
+  },
+  exact λ ⟨hxy, hz⟩, ⟨hxy, λ z, hz _⟩,
 end
 
 /-- Flags are bounded graded posets. -/
 instance flag.bounded_graded {α : Type*} [bg : bounded_graded α] (Φ : flag α) : bounded_graded Φ :=
 { grade := λ x, grade x.val,
   grade_bot := bg.grade_bot,
-  strict_mono := λ a b hab, has_grade.strict_mono hab,
-  hcovers := λ x ⟨y, hy⟩ hcov, has_grade.hcovers (Φ.cover_of_flag_cover hcov), }
+  strict_mono := λ _ _ hab, has_grade.strict_mono hab,
+  hcovers := λ _ _ hcov, has_grade.hcovers (Φ.cover_iff_flag_cover.mp hcov), }
 
 /-- Grades in flags coincide with the grades in the poset. -/
 @[simp]
@@ -148,7 +147,7 @@ private lemma all_ioo_of_ex_ioo' {P : ℕ → Prop} (n : ℕ) (hP : ∀ a b, b �
   ∀ a b, b ≤ a + n → P a → P b → ∀ c ∈ set.Ioo a b, P c :=
 begin
   induction n with n hP',
-    { exact λ a b hba ha hb c hci, ((not_lt_of_ge hba) (lt_trans hci.left hci.right)).elim },
+    { exact λ _ _ hba _ _ _ hci, ((not_lt_of_ge hba) (lt_trans hci.left hci.right)).elim },
   intros a b hba ha hb c hci,
   rcases hP a b hba ha hb (nonempty.intro ⟨c, hci⟩) with ⟨d, hdi, hd⟩,
   cases ioo_tricho c d hci hdi with hcd hdb, { rwa ←hcd at hd },
@@ -164,9 +163,8 @@ begin
         exact le_trans hba h }
   end,
   rcases hxy with ⟨x, y, hx, hy, hxy, hyx⟩, 
-  refine hP' (λ a b hba, _) x y hyx hx hy c hxy,
-  apply hP,
-  exact hba.trans (nat.le_succ _),
+  refine hP' (λ _ _ hba, _) x y hyx hx hy c hxy,
+  exact hP _ _ (hba.trans (nat.le_succ _)),
 end
 
 /-- A set of nats without gaps is an interval. -/
@@ -180,22 +178,11 @@ lemma all_icc_of_ex_ioo {P : ℕ → Prop} (hP : ∀ a b, P a → P b → (nonem
 begin
   intros a b ha hb c hci,
   cases hci with hac hcb, 
-  cases eq_or_lt_of_le hac with hac hac, {
-    rwa ←hac,
-  },
-  cases eq_or_lt_of_le hcb with hcb hcb, {
-    rwa hcb,
-  },
+  cases eq_or_lt_of_le hac with hac hac, 
+    { rwa ←hac },
+  cases eq_or_lt_of_le hcb with hcb hcb, 
+    { rwa  hcb },
   exact all_ioo_of_ex_ioo hP a b ha hb c ⟨hac, hcb⟩,  
-end
-
-/-- If `y` covers `x` when restricted to the flag, then `y` covers `x`. -/
-lemma cover_of_flag_cover (Φ : flag α) {x y : Φ} (hxy : x < y) :
-  (¬∃ z : Φ, z.val ∈ set.Ioo x.val y) → x ⋖ y :=
-begin
-  refine λ h, ⟨hxy, λ z hzi, _⟩,
-  push_neg at h,
-  refine h z hzi
 end
 
 /-- Grade has a monotone inverse in flags. -/
@@ -278,9 +265,8 @@ begin
   end,
   cases he with r hr,
   use r,
-  split, {
-    exact hr,
-  },
+  split, 
+    { exact hr },
   intros s hs,
   apply flag.grade.injective,
   rw hr, 
