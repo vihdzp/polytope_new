@@ -11,6 +11,10 @@ lemma nat.between {a b : ℕ} (hab : a ≤ b) (hba : b ≤ a + 1) : a = b ∨ a 
 def covers {α : Type*} [preorder α] (y x : α) : Prop :=
 x < y ∧ ∀ z, ¬ (z ∈ set.Ioo x y)
 
+/-- Covering is irreflexive. -/
+instance covers.is_irrefl {α : Type*} [preorder α] : is_irrefl α covers :=
+⟨ λ _ ha, ne_of_lt ha.left (refl _) ⟩ 
+
 notation x ` ⋗ `:50 y:50 := covers x y
 notation x ` ⋖ `:50 y:50 := covers y x
 
@@ -105,13 +109,13 @@ begin
     simp only [set.mem_Ioo, not_and] at hwi,
     by_cases hxw : x.val < w,
       { refine or.inl (le_of_lt _),
-        cases flag.comparable Φ y.prop hw with hyw hwy, { exact lt_trans hzy hyw },
+        cases Φ.comparable y.prop hw with hyw hwy, { exact lt_trans hzy hyw },
         cases eq_or_lt_of_le hwy with hwy hwy, { rwa hwy },
         exact (hwi hxw hwy).elim },
-      { cases flag.comparable Φ x.prop hw with hxw' hwx, { exact false.elim (hxw hxw') },
+      { cases Φ.comparable x.prop hw with hxw' hwx, { exact (hxw hxw').elim },
         exact or.inr (le_trans hwx (le_of_lt hxz)), },
   },
-  exact λ ⟨hxy, hz⟩, ⟨hxy, λ z, hz _⟩,
+  exact λ ⟨hxy, hz⟩, ⟨hxy, λ _, hz _⟩,
 end
 
 /-- Flags are bounded graded posets. -/
@@ -123,7 +127,8 @@ instance flag.bounded_graded {α : Type*} [bg : bounded_graded α] (Φ : flag α
 
 /-- Grades in flags coincide with the grades in the poset. -/
 @[simp]
-lemma flag.grade_eq_grade {α : Type*} [bg : bounded_graded α] {Φ : flag α} (a : Φ) : grade a = grade a.val := by refl
+lemma flag.grade_eq_grade {α : Type*} [bg : bounded_graded α] {Φ : flag α} (a : Φ) : grade a = grade a.val := 
+by refl
 
 /-- Grade is injective over flags. -/
 theorem flag.grade.injective {α : Type*} [bounded_graded α] (Φ : flag α) : function.injective (grade : Φ → ℕ) :=
@@ -209,10 +214,13 @@ lemma between_of_ncover {x y : α} (hnxy : ¬x ⋖ y) (hxy : x < y) :
 by by_contra hne; push_neg at hne; refine hnxy ⟨hxy, λ z h, hne z h.left h.right⟩
 
 /-- The set of grades in a flag has no gaps. -/
-lemma grade_ioo (Φ : flag α) (m n : ℕ):
-  is_grade Φ m → is_grade Φ n → (nonempty (set.Ioo m n)) → ∃ r ∈ set.Ioo m n, is_grade Φ r :=
+lemma grade_ioo (Φ : flag α) (m n : ℕ) :
+  is_grade Φ m → is_grade Φ n → nonempty (set.Ioo m n) → ∃ r ∈ set.Ioo m n, is_grade Φ r :=
 begin
   rintros ⟨a, ham⟩ ⟨b, hbn⟩ ⟨_, hrl, hrr⟩,
+
+  -- Make into its own lemma?
+  -- `a ⋖ b` in flags iff `grade a ⋖ grade b`.
   have hc : ∃ c : Φ, c.val ∈ set.Ioo a.val b.val := begin
     by_contra hc,
     push_neg at hc,
@@ -225,6 +233,7 @@ begin
     rw hba at this,
     exact nat.lt_asymm this this,
   end,
+  
   rcases hc with ⟨c, hac, hcb⟩, 
   use grade c,
   split, {
@@ -269,8 +278,7 @@ begin
     { exact hr },
   intros s hs,
   apply flag.grade.injective,
-  rw hr, 
-  rw hs,
+  rw [hr, hs],
 end
 
 end bounded_graded
@@ -303,8 +311,7 @@ lemma subset_iff_eq_flag (Φ Ψ : flag α) : Φ.val ⊆ Ψ.val ↔ Φ = Ψ := be
     cases set.eq_or_ssubset_of_subset hΦΨ, {
       exact subtype.ext_val h,
     },
-    exfalso,
-    exact hΦ ⟨Ψ, hcΨ, h⟩,
+    exact (hΦ ⟨Ψ, hcΨ, h⟩).elim,
   },
   intro h,
   rw h,
@@ -328,8 +335,7 @@ begin
     use a,
     intros b hb,
     have hab : grade a = grade b := begin
-      rw hj.right a ha,
-      rw hj.right b hb,
+      rw [hj.right a ha, hj.right b hb],
     end,
     sorry,
   },
