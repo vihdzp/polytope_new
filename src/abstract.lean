@@ -74,7 +74,7 @@ grade (⊤ : α)
 namespace bounded_graded
 
 /-- A `bounded_graded`'s grade is monotone. -/
-protected def monotone {α : Type*} [bg : bounded_graded α] : monotone bg.grade :=
+protected lemma monotone {α : Type*} [bg : bounded_graded α] : monotone bg.grade :=
 has_grade.strict_mono.monotone
 
 end bounded_graded
@@ -162,7 +162,7 @@ begin
 end
 
 /-- Grade is an order isomorphism in flags. -/
-lemma flag.lt_of_grade_lt {α : Type*} [bg : bounded_graded α] {Φ : flag α} (x y : Φ) : x < y ↔ grade x < grade y :=
+lemma flag.lt_iff_grade_lt {α : Type*} [bg : bounded_graded α] {Φ : flag α} (x y : Φ) : x < y ↔ grade x < grade y :=
 begin
   split, {
     intro hxy,
@@ -190,14 +190,13 @@ begin
   },
   intro hba,
   split, {
-    rw flag.lt_of_grade_lt,
-    rw hba,
+    rw [flag.lt_iff_grade_lt, hba],
     exact lt_add_one _,
   },
   rintros z ⟨hzl, hzr⟩,
   rw ←nat.cover_iff_succ at hba,
-  rw flag.lt_of_grade_lt at hzl,
-  rw flag.lt_of_grade_lt at hzr,
+  rw flag.lt_iff_grade_lt at hzl,
+  rw flag.lt_iff_grade_lt at hzr,
   exact hba.right _ ⟨hzl, hzr⟩,
 end
 
@@ -212,16 +211,15 @@ begin
     rwa ←flag.cover_iff_flag_cover,
   },
   intro hab,
-  rw flag.hcovers,
-  rwa ←nat.cover_iff_succ,
+  rwa [flag.hcovers, ←nat.cover_iff_succ],
 end
 
 namespace bounded_graded
 
 variables {α : Type*} [bounded_graded α]
 
-/-- A point in an interval subdivides it into three. -/
-lemma ioo_tricho {a b : ℕ} (c d ∈ set.Ioo a b) : c = d ∨ c ∈ set.Ioo a d ∨ c ∈ set.Ioo d b :=
+/-- A point subdivides an interval into three. -/
+lemma ioo_tricho {a b : ℕ} (c ∈ set.Ioo a b) (d: ℕ) : c = d ∨ c ∈ set.Ioo a d ∨ c ∈ set.Ioo d b :=
 begin
   by_cases hcd : c = d, { exact or.inl hcd },
   cases ne.lt_or_lt hcd with ha hb,
@@ -235,19 +233,19 @@ private lemma all_ioo_of_ex_ioo' {P : ℕ → Prop} (n : ℕ) (hP : ∀ a b, b �
 begin
   induction n with n hP',
     { exact λ _ _ hba _ _ _ hci, ((not_lt_of_ge hba) (lt_trans hci.left hci.right)).elim },
-  intros a b hba ha hb c hci,
-  rcases hP a b hba ha hb (nonempty.intro ⟨c, hci⟩) with ⟨d, hdi, hd⟩,
-  cases ioo_tricho c d hci hdi with hcd hdb, { rwa ←hcd at hd },
+  intros a b hba ha hb _ hci,
+  rcases hP a b hba ha hb (nonempty.intro ⟨_, hci⟩) with ⟨d, ⟨hdil, hdir⟩, hd⟩,
+  cases ioo_tricho _ hci d with hcd hdb, { rwa ←hcd at hd },
   have hxy : ∃ x y, P x ∧ P y ∧ c ∈ set.Ioo x y ∧ y ≤ x + n := begin
     cases hdb with hcad hcdb,
       { refine ⟨a, d, ha, hd, hcad, _⟩,
-        have h := lt_of_lt_of_le hdi.right hba,
-        rw nat.add_succ at h,
-        exact nat.le_of_lt_succ h },
+        have := lt_of_lt_of_le hdir hba,
+        rw nat.add_succ at this,
+        exact nat.le_of_lt_succ this },
       { refine ⟨d, b, hd, hb, hcdb, _⟩,
-        have h := nat.add_le_add hdi.left rfl.le,
-        rw nat.succ_add a n at h,
-        exact le_trans hba h }
+        have := nat.add_le_add hdil rfl.le,
+        rw nat.succ_add a n at this,
+        exact le_trans hba this }
   end,
   rcases hxy with ⟨x, y, hx, hy, hxy, hyx⟩, 
   refine hP' (λ _ _ hba, _) x y hyx hx hy c hxy,
@@ -279,7 +277,7 @@ def is_grade {α : Type*} [bounded_graded α] (Φ : flag α) (n : ℕ) :=
 /-- If `x < y` but `y` does not cover `x`, then there's an element in between. -/
 lemma between_of_ncover {x y : α} (hnxy : ¬x ⋖ y) (hxy : x < y) :
   ∃ z, x < z ∧ z < y :=
-by by_contra hne; push_neg at hne; refine hnxy ⟨hxy, λ z h, hne z h.left h.right⟩
+by by_contra hne; push_neg at hne; exact hnxy ⟨hxy, λ z h, hne z h.left h.right⟩
 
 /-- The set of grades in a flag has no gaps. -/
 lemma grade_ioo (Φ : flag α) (m n : ℕ) :
@@ -287,22 +285,17 @@ lemma grade_ioo (Φ : flag α) (m n : ℕ) :
 begin
   rintros ⟨a, ham⟩ ⟨b, hbn⟩ ⟨r, hr⟩,
 
-  have hab : ¬a ⋖ b := begin
+  have hnab : ¬a ⋖ b := begin
     have : ¬m ⋖ n := λ hmn, (hmn.right r) hr,
     rwa [←ham, ←hbn, ←flag.cover_iff_nat_cover] at this,
   end,
-  
-  have hc : ∃ c : Φ, c ∈ set.Ioo a b := begin
-    by_contra hc,
-    push_neg at hc,
-    apply hab,
-    split, 
-      { rw [flag.lt_of_grade_lt, ham, hbn], 
-        exact lt_trans hr.left hr.right, },
-    exact hc,
+
+  have hab : a < b := begin    
+    rw [flag.lt_iff_grade_lt, ham, hbn],
+    exact lt_trans hr.left hr.right,
   end,
 
-  rcases hc with ⟨c, hac, hcb⟩, 
+  rcases between_of_ncover hnab hab with ⟨c, hac, hcb⟩, 
   use grade c,
   split, 
     { split, 
@@ -356,6 +349,7 @@ x ≤ y → grade y = grade x + 2 → ∃ a b, a ≠ b ∧ set.Ioo x y = {a, b}
 class pre_polytope (α : Type*) extends bounded_graded α :=
 (diamond (x y : α) : diamond x y)
 
+/-- Asserts that a set is a singleton. -/
 @[reducible]
 def set.is_singleton {β : Type*} (s : set β) := ∃ a, s = {a}
 
