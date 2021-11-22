@@ -51,7 +51,7 @@ end bounded_order
 /-- A bounded graded order has an order homomorphism into the naturals, such 
     that `⊥` has grade 0, and the homomorphism respects covering. -/
 @[protect_proj, field_simps]
-class {u} has_grade (α : Type u) [preorder α] [bounded_order α] : Type u :=
+class {u} has_grade (α : Type u) [preorder α] [order_bot α] : Type u :=
 (grade : α → ℕ)
 (grade_bot : grade ⊥ = 0)
 (strict_mono : strict_mono grade)
@@ -369,11 +369,14 @@ variables {α : Type*} [pre_polytope α]
 def flag_adj (j : ℕ) (Φ Ψ : flag α) : Prop :=
 Φ ≠ Ψ ∧ ∀ a ∈ Φ.val \ Ψ.val, grade a = j
 
-noncomputable def flag_idx (j : ℕ) (Φ : flag α) : Φ := begin
-  by_cases hj : j ≤ (top_grade Φ), {
-    exact classical.some ((bounded_graded.flag_grade Φ j).mpr hj) ,
-  },
-  exact ⊥,
+noncomputable def flag_idx (j : ℕ) (Φ : flag α) : Φ := 
+  if hj : j ≤ (top_grade Φ) 
+  then classical.some ((bounded_graded.flag_grade Φ j).mpr hj) 
+  else ⊤
+
+lemma grade_flag_idx (j : ℕ) (Φ : flag α) (hj : j ≤ (top_grade Φ)): grade (flag_idx j Φ) = j :=
+begin
+  split_ifs,
 end
 
 /-- Two flags are subsets of one another iff they're equal. -/

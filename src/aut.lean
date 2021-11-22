@@ -92,17 +92,14 @@ theorem flag.bot_in_flag [order_bot α] (Φ : flag α) : ⊥ ∈ Φ.val :=
 Φ.mem_flag_iff_comp.mpr (λ b _, or.inl bot_le)
 
 instance flag.order_bot [order_bot α] (Φ : flag α) : order_bot Φ :=
-{ bot := ⟨⊥, Φ.bot_in_flag⟩,
-  bot_le := λ x, order_bot.bot_le x.val }
+⟨⟨⊥, Φ.bot_in_flag⟩, λ x, order_bot.bot_le x.val⟩
 
 /-- `⊤` belongs to every flag. -/
 theorem flag.top_in_flag [order_top α] (Φ : flag α) : ⊤ ∈ Φ.val :=
 Φ.mem_flag_iff_comp.mpr (λ b _, comparable'.comparable (or.inr le_top))
 
 instance flag.order_top [order_top α] (Φ : flag α) : order_top Φ :=
-{ top := ⟨⊤, Φ.top_in_flag⟩,
-  le_top := λ x, order_top.le_top x.val }
-end
+⟨⟨⊤, Φ.top_in_flag⟩, λ x, order_top.le_top x.val⟩
 
 /-- The category of posets of type α. -/
 @[instance]
